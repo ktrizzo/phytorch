@@ -1,0 +1,27 @@
+{
+  "id": "notebooks/stomatal-conductance-analysis",
+  "title": "Community Notebook: Stomatal Conductance Analysis with PhyTorch",
+  "description": "This notebook demonstrates fitting stomatal conductance models to understand plant water use efficiency and stomatal behavior.",
+  "source": "@site/docs/notebooks/stomatal-conductance-analysis.md",
+  "sourceDirName": "notebooks",
+  "slug": "/notebooks/stomatal-conductance-analysis",
+  "permalink": "/docs/notebooks/stomatal-conductance-analysis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/PlantSimulationLab/phytorch/tree/main/website/docs/notebooks/stomatal-conductance-analysis.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Community Notebook: Photosynthesis Analysis with PhyTorch",
+    "permalink": "/docs/notebooks/photosynthesis-analysis"
+  },
+  "next": {
+    "title": "API Reference",
+    "permalink": "/docs/api/"
+  }
+}

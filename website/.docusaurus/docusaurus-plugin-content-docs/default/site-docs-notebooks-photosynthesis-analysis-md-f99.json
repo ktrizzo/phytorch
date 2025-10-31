@@ -1,0 +1,27 @@
+{
+  "id": "notebooks/photosynthesis-analysis",
+  "title": "Community Notebook: Photosynthesis Analysis with PhyTorch",
+  "description": "This notebook demonstrates fitting FvCB photosynthesis models to A-Ci response curves and extracting biological insights.",
+  "source": "@site/docs/notebooks/photosynthesis-analysis.md",
+  "sourceDirName": "notebooks",
+  "slug": "/notebooks/photosynthesis-analysis",
+  "permalink": "/docs/notebooks/photosynthesis-analysis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/PlantSimulationLab/phytorch/tree/main/website/docs/notebooks/photosynthesis-analysis.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Stomatal Conductance Models",
+    "permalink": "/docs/models/stomatal-conductance"
+  },
+  "next": {
+    "title": "Community Notebook: Stomatal Conductance Analysis with PhyTorch",
+    "permalink": "/docs/notebooks/stomatal-conductance-analysis"
+  }
+}
