@@ -11,35 +11,32 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Robust Parameter Estimation',
+    title: 'Modular',
     imageSrc: '/img/puzzle.png',
     description: (
       <>
-        Extract physiological parameters from gas exchange data with confidence.
-        Fit FvCB photosynthesis, stomatal conductance, and PROSPECT optical models
-        with automatic validation and constraint enforcement.
+        Flexible, composable models that allow for customization and experimentation.
+        Easily extend with your own models, submodels, and constraints.
       </>
     ),
   },
   {
-    title: 'GPU-Accelerated Fitting',
+    title: 'Built on PyTorch',
     imageSrc: '/img/flame.png',
     description: (
       <>
-        Leverage PyTorch's automatic differentiation and GPU acceleration to fit
-        hundreds of A-Ci curves simultaneously. Handle complex models with 10+ parameters
-        efficiently and robustly.
+        Leverage GPU acceleration and automatic differentiation for fast, efficient
+        parameter estimation. Fit hundreds of curves simultaneously with complex models
+        (10+ parameters) using state-of-the-art optimization.
       </>
     ),
   },
   {
-    title: 'From LI-COR to Parameters',
+    title: 'Comprehensive',
     imageSrc: '/img/plant.png',
     description: (
       <>
-        Load your LI-COR 6800 data and extract Vcmax, Jmax, stomatal sensitivity (g₁),
-        leaf optical properties, and more. Production-ready tools for plant physiology
-        research and breeding programs.
+        Unified framework for extracting model parameters from data across domains of leaf gas exchange, hydraulics, and optics all in one toolkit.
       </>
     ),
   },
