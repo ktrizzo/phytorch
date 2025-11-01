@@ -8,7 +8,7 @@ import rehypeKatex from 'rehype-katex';
 
 const config: Config = {
   title: 'PhyTorch',
-  tagline: 'A Physiological Plant Modeling Toolkit',
+  tagline: 'Robust Model Fitting for Plant Physiology',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
