@@ -11,24 +11,23 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Simple & Unified',
+    title: 'Modular',
     imageSrc: '/img/puzzle.png',
     description: (
       <>
-        One consistent API for all models: <code>fit(model, data, options)</code>.
-        From simple linear regression to complex photosynthesis models,
-        no need to learn different interfaces.
+        Flexible, composable models that allow for customization and experimentation.
+        Easily extend with your own models, submodels, and constraints.
       </>
     ),
   },
   {
-    title: 'Built-in Plotting',
+    title: 'Built on PyTorch',
     imageSrc: '/img/flame.png',
     description: (
       <>
-        Automatic visualization adapts to your model type.
-        1D models show fit curves, multi-dimensional models show response surfaces,
-        and photosynthesis models get comprehensive plots with 3D surfaces.
+        Leverage GPU acceleration and automatic differentiation for fast, efficient
+        parameter estimation. Fit hundreds of curves simultaneously with complex models
+        (10+ parameters) using state-of-the-art optimization.
       </>
     ),
   },
@@ -37,9 +36,7 @@ const FeatureList: FeatureItem[] = [
     imageSrc: '/img/plant.png',
     description: (
       <>
-        Unified framework spanning generic curve fitting, hydraulics, and photosynthesis.
-        9 generic models, 2 hydraulics models, and specialized physiological models
-        all accessible through the same simple interface.
+        Unified framework for extracting model parameters from data across domains of leaf gas exchange, hydraulics, and optics all in one toolkit.
       </>
     ),
   },
