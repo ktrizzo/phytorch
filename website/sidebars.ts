@@ -21,8 +21,10 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Models',
       items: [
+        'models/generic',
         'models/photosynthesis',
         'models/stomatal-conductance',
+        'models/hydraulics',
       ],
     },
     {
