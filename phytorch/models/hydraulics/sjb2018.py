@@ -14,7 +14,7 @@ class SJB2018(Model):
         p(w) = πₒ · max(0, (w - w_tlp)/(1 - w_tlp))^ε   (turgor pressure, positive MPa)
         π(w) = -πₒ / w                                   (osmotic potential, negative MPa)
 
-    and w is relative water content (0-1), πₒ is saturated osmotic pressure,
+    and w is relative water content (0-1), πₒ is osmotic pressure at full turgor (positive),
     w_tlp is relative water content at turgor loss point, and ε is compartmental
     wall elasticity.
 
@@ -32,7 +32,7 @@ class SJB2018(Model):
         Args:
             data: {'w': relative water content (unitless, 0-1)}
             parameters: {
-                'pi_o': saturated osmotic pressure magnitude (MPa, positive value),
+                'pi_o': osmotic pressure at full turgor (MPa, positive value),
                 'w_tlp': relative water content at turgor loss point (0-1),
                 'epsilon': compartmental wall elasticity
             }
@@ -56,10 +56,10 @@ class SJB2018(Model):
     def parameter_info(self) -> dict:
         return {
             'pi_o': {
-                'default': 1.0,
+                'default': 2.0,
                 'bounds': (0.1, 5.0),
                 'units': 'MPa',
-                'description': 'Saturated osmotic pressure (positive value)',
+                'description': 'Osmotic pressure at full turgor (positive value; osmotic potential = -πₒ)',
                 'symbol': 'πₒ'
             },
             'w_tlp': {

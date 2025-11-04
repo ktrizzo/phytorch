@@ -87,7 +87,7 @@ $$
 - $p$ = Turgor pressure (MPa, positive)
 - $\pi$ = Osmotic potential (MPa, negative)
 - $w$ = Relative water content (0-1)
-- $\pi_o$ = Osmotic potential at full turgor (MPa, positive value)
+- $\pi_o$ = Osmotic pressure at full turgor (MPa, positive value)
 - $w_{tlp}$ = Relative water content at turgor loss point
 - $\epsilon$ = Bulk modulus of elasticity (MPa)
 
@@ -106,7 +106,7 @@ data = {
 
 result = fit(SJB2018(), data)
 
-print(f"Osmotic potential at full turgor: {result.parameters['pi_o']:.2f} MPa")
+print(f"Osmotic pressure at full turgor: {result.parameters['pi_o']:.2f} MPa")
 print(f"Turgor loss point: {result.parameters['w_tlp']:.3f}")
 print(f"Bulk modulus: {result.parameters['epsilon']:.2f} MPa")
 print(f"R² = {result.r_squared:.4f}")
@@ -117,11 +117,13 @@ result.plot()
 
 #### Parameters
 
-| Parameter | Description | Typical Range | Units |
-|-----------|-------------|---------------|-------|
-| `pi_o` | Osmotic potential at full turgor | 1.0-3.0 | MPa (positive) |
-| `w_tlp` | RWC at turgor loss point | 0.70-0.90 | fraction |
-| `epsilon` | Bulk modulus of elasticity | 5-30 | MPa |
+| Parameter | Description | Typical Range | Units | Default |
+|-----------|-------------|---------------|-------|---------|
+| `pi_o` | Osmotic pressure at full turgor | 1.0-3.0 | MPa | 2.0 |
+| `w_tlp` | RWC at turgor loss point | 0.70-0.90 | fraction | 0.85 |
+| `epsilon` | Bulk modulus of elasticity | 5-30 | MPa | 1.0 |
+
+**Note**: `pi_o` is the osmotic **pressure** (positive value). The corresponding osmotic **potential** at full turgor is `-pi_o` (e.g., default 2.0 MPa pressure = -2.0 MPa potential).
 
 #### Key P-V Parameters
 
@@ -131,8 +133,9 @@ From the fitted curve, you can derive important physiological parameters:
 - Water potential at zero turgor: $\psi_{tlp} = -\pi_o / w_{tlp}$
 - Lower (more negative) values indicate greater drought tolerance
 
-**Osmotic Potential at Full Turgor**:
-- More negative values indicate greater osmotic adjustment capacity
+**Osmotic Pressure at Full Turgor** ($\pi_o$):
+- Higher values (representing more negative osmotic potential) indicate greater osmotic adjustment capacity
+- Osmotic potential at full turgor = $-\pi_o$
 
 **Bulk Modulus of Elasticity**:
 - Higher values indicate stiffer cell walls
@@ -172,6 +175,7 @@ PhyTorch follows standard plant physiology conventions:
 | Water potential (ψ) | Negative | 0 to -10 MPa | More negative = drier |
 | Turgor pressure (p) | Positive | 0 to 3 MPa | Zero at TLP |
 | Osmotic potential (π) | Negative | -0.5 to -5 MPa | More negative = higher solute concentration |
+| Osmotic pressure (π_o) | Positive | 0.5 to 5 MPa | Equal to -π in magnitude |
 
 ## Custom Parameter Bounds
 
