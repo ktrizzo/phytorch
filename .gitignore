@@ -142,3 +142,9 @@ website/.docusaurus/
 # Logo files (keep in repo but ignore duplicates)
 *.png
 !website/static/img/*.png
+
+# Test scripts and development files
+test_*.py
+demo_*.py
+DESIGN_GUIDELINES.md
+CODE_REVIEW_FIXED
