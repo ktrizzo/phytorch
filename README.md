@@ -6,83 +6,127 @@
 [![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-ee4c2c.svg)](https://pytorch.org/)
 
-PhyTorch is a PyTorch-based package for modeling plant physiological processes. It provides efficient, GPU-accelerated implementations of models for photosynthesis, stomatal conductance, leaf hydraulics, and optical properties.
+PhyTorch is a PyTorch-based package for fitting and analyzing plant physiological models. It provides a unified, simple API for model fitting with efficient GPU-accelerated optimization and automatic differentiation.
 
 ## Features
 
+- **Unified API**: Simple `fit(model, data)` interface for all models
 - **Photosynthesis Models**: FvCB (Farquhar-von Caemmerer-Berry) model with flexible temperature and light response functions
 - **Stomatal Conductance**: Multiple empirical and semi-empirical models (Medlyn, Ball-Woodrow-Berry, Buckley-Mott-Farquhar)
 - **Leaf Optical Properties**: PROSPECT model for leaf spectral reflectance and transmittance
-- **Leaf Hydraulics**: *Coming soon* - Models for leaf water transport and hydraulic conductance
+- **Leaf Hydraulics**: Pressure-volume curves (SJB2018), sigmoidal vulnerability curves
+- **Canopy Architecture**: Leaf angle distribution models with automatic classification into canonical types
+- **Generic Models**: Arrhenius, peaked Arrhenius, Weibull, beta distribution, Gaussian, sigmoidal, and hyperbolic functions
 - **GPU Acceleration**: Leverage PyTorch for fast parameter optimization on CPU or GPU
 - **Automatic Differentiation**: Efficient gradient-based optimization for model fitting
+- **Custom Plotting**: Model-specific diagnostic plots with publication-ready styling
 
 ## Installation
 
 ### From PyPI (recommended)
 
 ```bash
-pip install phytorch
+pip install phytorch-lib
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/PlantSimulationLab/phytorch.git
+git clone https://github.com/ktrizzo/phytorch.git
 cd phytorch
 pip install -e .
 ```
 
 ## Quick Start
 
-### Photosynthesis (FvCB Model)
+PhyTorch uses a unified `fit(model, data)` API for all models:
+
+### Pressure-Volume Curves
 
 ```python
-from phytorch import photosynthesis as fvcb
+from phytorch import fit
+from phytorch.models.hydraulics import SJB2018
 import pandas as pd
 
-# Load your A-Ci curve data
-df = pd.read_csv('your_aci_data.csv')
-lcd = fvcb.initLicordata(df, preprocess=True)
+# Load pressure-volume data
+df = pd.read_csv('pv_data.csv')
+data = {
+    'w': df['RWC'].values,      # Relative water content
+    'psi': df['Psi_MPa'].values # Water potential (MPa)
+}
 
-# Initialize and fit the FvCB model
-model = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
-result = fvcb.fit(model, learn_rate=0.08, maxiteration=20000)
+# Fit model
+model = SJB2018()
+result = fit(model, data)
 
-# View fitted parameters
-print(f"Vcmax25 = {result.params['Vcmax25']:.2f} μmol/m²/s")
-print(f"Jmax25 = {result.params['Jmax25']:.2f} μmol/m²/s")
+# View results
+print(f"πₒ = {result.parameters['pi_o']:.3f} MPa")
+print(f"w_tlp = {result.parameters['w_tlp']:.3f}")
+print(f"R² = {result.r_squared:.4f}")
+
+# Plot with custom diagnostics
+result.plot(save='pv_curve.png')
 ```
 
-### Stomatal Conductance
+### Leaf Angle Distribution
 
 ```python
-from phytorch import stomatalconductance as stomatal
+from phytorch import fit
+from phytorch.models.canopy import LeafAngleDistribution, bin_leaf_angles
 import pandas as pd
 
-# Load stomatal conductance data
-df = pd.read_csv('your_gs_data.csv')
-scd = stomatal.initscdata(df, preprocess=True)
+# Load and bin leaf angle measurements
+df = pd.read_csv('leaf_angles.csv')
+data = bin_leaf_angles(df['zenith'].values, angle_type='zenith')
 
-# Fit Medlyn model
-model = stomatal.model(scd, model_type='MED')
-result = stomatal.fit(model, learn_rate=0.01, maxiteration=10000)
+# Fit model
+model = LeafAngleDistribution()
+result = fit(model, data)
 
-# View fitted parameters
-print(f"g0 = {result.params['g0']:.4f} mol/m²/s")
-print(f"g1 = {result.params['g1']:.2f}")
+# Classify canopy architecture
+classification = model.classify(result.parameters)
+print(f"Canopy type: {classification['type']}")
+print(f"R² = {result.r_squared:.4f}")
+
+# Plot with classification
+result.plot(save='leaf_angles.png')
+```
+
+### Generic Models
+
+```python
+from phytorch import fit
+from phytorch.models.generic import Arrhenius, Weibull, Beta
+
+# Temperature response with Arrhenius
+model = Arrhenius()
+data = {'x': temperatures, 'y': rates}
+result = fit(model, data)
+
+# Weibull distribution
+model = Weibull()
+result = fit(model, data)
+
+# Beta distribution
+model = Beta()
+result = fit(model, data)
 ```
 
 ## Package Structure
 
 ```
 phytorch/
-├── photosynthesis/      # FvCB photosynthesis models
-├── stomatalconductance/ # Stomatal conductance models
-├── leafoptics/          # PROSPECT leaf optical properties
-├── leafhydraulics/      # Leaf hydraulics (under development)
-├── data/                # Example datasets
-└── util.py              # Utility functions
+├── fit.py               # Unified fit() function
+├── models/              # Model library
+│   ├── generic/         # Generic mathematical models
+│   ├── hydraulics/      # Leaf hydraulics models
+│   └── canopy/          # Canopy architecture models
+├── photosynthesis/      # FvCB photosynthesis models (legacy API)
+├── stomatalconductance/ # Stomatal conductance models (legacy API)
+├── leafoptics/          # PROSPECT leaf optical properties (legacy API)
+├── leafhydraulics/      # Leaf hydraulics (legacy API)
+├── core/                # Core optimization and fitting infrastructure
+└── data/                # Example datasets
 ```
 
 ## Documentation
@@ -115,4 +159,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Contact
 
-For questions or issues, please [open an issue](https://github.com/PlantSimulationLab/phytorch/issues) on GitHub.
+For questions or issues, please [open an issue](https://github.com/ktrizzo/phytorch/issues) on GitHub.
