@@ -142,6 +142,7 @@ class FitResult:
         - For 1D models (x→y): Predicted vs Observed, and Model Fit curve
         - For photosynthesis models: Special 3D layout with surface plots
         - For other multi-D models: Predicted vs Observed, plus response curves
+        - For models with custom plot: Delegates to model.plot()
 
         Args:
             save: Optional filename to save figure (e.g., 'fit.png')
@@ -151,6 +152,10 @@ class FitResult:
             >>> result.plot()  # Display plots
             >>> result.plot(save='figure.png', show=False)  # Save without display
         """
+        # Check if model has custom plot method
+        if hasattr(self.model, 'plot') and callable(self.model.plot):
+            return self.model.plot(self.data, self.parameters, show=show, save=save)
+
         # Get required data fields (inputs + output)
         required = self.model.required_data()
 

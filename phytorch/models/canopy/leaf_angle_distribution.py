@@ -29,55 +29,59 @@ class LeafAngleDistribution(Model):
     """
 
     # Canonical distribution parameters from de Wit (1965)
+    # Note: Swapped mu/nu from literature because angle is from horizontal not zenith
     CANONICAL_TYPES = {
-        'planophile': {'mu': 2.770, 'nu': 1.172},
-        'erectophile': {'mu': 1.172, 'nu': 2.770},
-        'plagiophile': {'mu': 3.326, 'nu': 3.326},
-        'extremophile': {'mu': 0.433, 'nu': 0.433},
-        'uniform': {'mu': 1.000, 'nu': 1.000},
-        'spherical': {'mu': 1.101, 'nu': 1.930}
+        'planophile': {'mu': 1.172, 'nu': 2.770},  # Horizontal leaves
+        'erectophile': {'mu': 2.770, 'nu': 1.172},  # Vertical leaves
+        'plagiophile': {'mu': 3.326, 'nu': 3.326},  # Oblique leaves
+        'extremophile': {'mu': 0.433, 'nu': 0.433},  # Bimodal
+        'uniform': {'mu': 1.000, 'nu': 1.000},  # Uniform
+        'spherical': {'mu': 1.930, 'nu': 1.101}  # Spherical
     }
 
     def forward(self, data: dict, parameters: dict) -> np.ndarray:
         """Compute probability density of leaf angles.
 
         Args:
-            data: {'theta': leaf inclination angle from horizontal (degrees, 0-90)}
+            data: {'x': leaf inclination angle from horizontal (degrees, 0-90)}
             parameters: {
                 'mu': first shape parameter,
                 'nu': second shape parameter
             }
 
         Returns:
-            Predicted probability density
+            Predicted probability density (per degree)
         """
-        theta = np.asarray(data['theta'])
+        theta = np.asarray(data['x'])
         mu = parameters['mu']
         nu = parameters['nu']
 
-        # Convert to radians
-        theta_rad = np.deg2rad(theta)
+        # Transform theta from [0, 90] degrees to t in [0, 1]
+        # t = theta / 90
+        t = theta / 90.0
+        t = np.clip(t, 1e-10, 1.0 - 1e-10)  # Avoid boundary issues
 
-        # Beta distribution for leaf angles
-        # f(θ) = sin^(μ-1)(θ) · cos^(ν-1)(θ) / (B(μ,ν) · 90)
-        sin_term = np.power(np.sin(theta_rad), mu - 1)
-        cos_term = np.power(np.cos(theta_rad), nu - 1)
-        normalization = beta_function(mu, nu) * 90.0
+        # Beta distribution: f(t) = t^(μ-1) · (1-t)^(ν-1) / B(μ,ν)
+        # Density per degree: f_theta(θ) = f(t) / 90
+        beta_norm = beta_function(mu, nu)
+        t_term = np.power(t, mu - 1)
+        one_minus_t_term = np.power(1.0 - t, nu - 1)
 
-        return (sin_term * cos_term) / normalization
+        # Probability density per degree
+        return (t_term * one_minus_t_term) / (beta_norm * 90.0)
 
     def parameter_info(self) -> dict:
         return {
             'mu': {
                 'default': 1.5,
-                'bounds': (0.1, 5.0),
+                'bounds': (0.3, 5.0),
                 'units': '',
                 'description': 'First shape parameter (controls horizontal tendency)',
                 'symbol': 'μ'
             },
             'nu': {
                 'default': 1.5,
-                'bounds': (0.1, 5.0),
+                'bounds': (0.3, 5.0),
                 'units': '',
                 'description': 'Second shape parameter (controls vertical tendency)',
                 'symbol': 'ν'
@@ -85,7 +89,7 @@ class LeafAngleDistribution(Model):
         }
 
     def required_data(self) -> list:
-        return ['theta', 'frequency']
+        return ['x', 'y']
 
     def initial_guess(self, data: dict) -> dict:
         """Estimate initial parameters from data.
@@ -95,25 +99,26 @@ class LeafAngleDistribution(Model):
         - High mean angle → erectophile (low mu, high nu)
         - Mid-range → spherical or plagiophile
         """
-        theta = np.asarray(data['theta'])
-        frequency = np.asarray(data['frequency']) if 'frequency' in data else np.ones_like(theta)
+        theta = np.asarray(data['x'])
+        frequency = np.asarray(data['y'])
 
         # Compute weighted mean angle
         mean_angle = np.average(theta, weights=frequency)
 
         # Estimate parameters based on mean angle
+        # Use canonical values as starting points (adjusted for angle from horizontal)
         if mean_angle < 30:
-            # Planophile-like
-            mu_guess, nu_guess = 2.5, 1.2
+            # Planophile-like (mostly horizontal)
+            mu_guess, nu_guess = 1.172, 2.770
         elif mean_angle > 60:
-            # Erectophile-like
-            mu_guess, nu_guess = 1.2, 2.5
+            # Erectophile-like (mostly vertical)
+            mu_guess, nu_guess = 2.770, 1.172
         elif 40 <= mean_angle <= 50:
-            # Plagiophile-like
-            mu_guess, nu_guess = 3.0, 3.0
+            # Plagiophile-like (mostly oblique)
+            mu_guess, nu_guess = 3.326, 3.326
         else:
             # Spherical-like
-            mu_guess, nu_guess = 1.1, 1.9
+            mu_guess, nu_guess = 1.930, 1.101
 
         return {
             'mu': mu_guess,
@@ -156,3 +161,58 @@ class LeafAngleDistribution(Model):
             'canonical_mu': self.CANONICAL_TYPES[best_type]['mu'],
             'canonical_nu': self.CANONICAL_TYPES[best_type]['nu']
         }
+
+    def plot(self, data: dict, parameters: dict, show: bool = True, save: str = None):
+        """Custom plot for leaf angle distribution showing canopy classification.
+
+        Args:
+            data: Data dictionary with 'x' (angles) and 'y' (frequencies)
+            parameters: Fitted parameters
+            show: Whether to display the plot (default: True)
+            save: Filename to save plot (default: None)
+        """
+        import matplotlib.pyplot as plt
+
+        # Classify canopy type
+        classification = self.classify(parameters)
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Plot data
+        ax.scatter(data['x'], data['y'], s=100, alpha=0.6, color='black',
+                   edgecolors='black', linewidth=0.5, label='Measured', zorder=3)
+
+        # Plot fitted curve
+        theta_fine = np.linspace(0, 90, 200)
+        predicted = self.forward({'x': theta_fine}, parameters)
+        ax.plot(theta_fine, predicted, 'r-', linewidth=2.5,
+                label=f'Fit: {classification["type"]} (μ={parameters["mu"]:.2f}, ν={parameters["nu"]:.2f})',
+                zorder=2)
+
+        # Labels and title
+        ax.set_xlabel('Leaf Angle from Horizontal (degrees)', fontsize=12)
+        ax.set_ylabel('Frequency (probability density)', fontsize=12)
+        ax.set_title(f'Leaf Angle Distribution - {classification["type"].upper()}',
+                     fontsize=13, fontweight='bold')
+        ax.legend(fontsize=10, loc='best')
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(0, 90)
+        ax.set_ylim(bottom=0)
+
+        # Add classification info box
+        info_text = f"Canonical: μ={classification['canonical_mu']:.2f}, ν={classification['canonical_nu']:.2f}\n"
+        info_text += f"Distance: {classification['distance']:.3f}"
+        ax.text(0.98, 0.02, info_text, transform=ax.transAxes,
+                fontsize=9, va='bottom', ha='right',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+
+        plt.tight_layout()
+
+        if save:
+            plt.savefig(save, dpi=200, bbox_inches='tight')
+
+        if show:
+            plt.show()
+
+        return fig, ax
