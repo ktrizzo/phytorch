@@ -4,48 +4,64 @@ sidebar_position: 1
 
 # Introduction to PhyTorch
 
-**PhyTorch** is a robust parameter estimation toolkit for plant physiology built on PyTorch. Extract physiological parameters from gas exchange and spectral data using state-of-the-art optimization algorithms.
+**PhyTorch** is a unified Python toolkit for fitting plant physiology models, from simple curve fitting to complex biochemical processes. With one consistent API, fit any model using the same simple pattern: `fit(model, data, options)`.
 
 ## What is PhyTorch?
 
-PhyTorch is a **model fitting toolkit** designed to extract meaningful physiological parameters from experimental data. Whether you have A-Ci curves from a LI-COR 6800 or leaf reflectance spectra, PhyTorch helps you estimate:
+PhyTorch provides a **unified framework** for parameter estimation across all domains of plant physiology. Whether you're fitting a simple linear regression or a complex photosynthesis model, PhyTorch uses the same intuitive interface:
 
-- **Vcmax, Jmax, TPU, Rd** from photosynthesis measurements (FvCB model)
-- **g₀, g₁** stomatal sensitivity parameters (Medlyn, Ball-Berry models)
-- **N, Cab, Car, LMA** leaf optical properties (PROSPECT model)
-- **Temperature response parameters** (activation energies, optimal temperatures)
+```python
+from phytorch import fit
+
+result = fit(model, data)
+result.plot()
+```
+
+The same three-line pattern works for:
+- **Generic curve fitting** (9 models: linear, sigmoidal, Michaelis-Menten, temperature responses, distributions)
+- **Hydraulic models** (vulnerability curves, pressure-volume relationships)
+- **Photosynthesis models** (biochemical C3 photosynthesis with environmental responses)
+- **Stomatal conductance models** (empirical and semi-empirical gs models)
+
+## Philosophy
+
+PhyTorch is built on three core principles:
+
+1. **Unified API**: One consistent interface for all models eliminates the need to learn different fitting procedures
+2. **Simple to Complex**: Start with basic curve fitting, scale up to multi-parameter physiological models seamlessly
+3. **Automatic Intelligence**: Built-in parameter initialization, plotting, and validation work automatically for all models
 
 ## Overview
 
-PhyTorch extends the capabilities of [PhoTorch](https://github.com/GEMINI-Breeding/photorch), a robust photosynthesis model fitting package, to provide a complete suite of plant physiological parameter estimation tools. By leveraging PyTorch's automatic differentiation and GPU acceleration, PhyTorch enables efficient and robust fitting of complex physiological models to experimental data.
+Building on [PhoTorch](https://github.com/GEMINI-Breeding/photorch), PhyTorch extends robust photosynthesis modeling to a comprehensive plant physiology toolkit. By leveraging PyTorch's automatic differentiation and optimization algorithms, PhyTorch delivers efficient, reliable parameter estimation across the full spectrum of plant physiological processes.
 
 ## Key Features
 
-- **Robust Fitting**: Automatic constraint enforcement and parameter validation prevent unphysical solutions
-- **GPU-Accelerated**: Fit hundreds of A-Ci curves simultaneously using GPU parallelization
-- **Automatic Differentiation**: Handle complex models (10+ parameters) without manual gradient derivation
-- **Multiple Models**:
-  - **Photosynthesis**: FvCB model with flexible temperature and light responses
-  - **Stomatal Conductance**: Medlyn (USO), Ball-Woodrow-Berry, Buckley-Mott-Farquhar
-  - **Leaf Optics**: PROSPECT-D for leaf reflectance and transmittance
-  - **Future**: Hydraulic conductance, C4 photosynthesis
-- **From Data to Parameters**: Load LI-COR files directly and extract fitted parameters with uncertainty estimates
-- **Research-Ready**: Validated against published datasets and used in active breeding programs
+- **Unified API**: One function (`fit`) works for all models - from linear regression to complex photosynthesis
+- **Comprehensive Model Library**:
+  - 9 generic curve-fitting models
+  - 2 hydraulic models (vulnerability and P-V curves)
+  - Photosynthesis (FvCB with temperature and light responses)
+  - Stomatal conductance (Medlyn, Ball-Berry, and more)
+- **Automatic Visualization**: Built-in plotting adapts to model type (1D curves, 3D surfaces for photosynthesis)
+- **Smart Initialization**: Auto-generates parameter starting values from your data
+- **GPU-Accelerated**: Leverages PyTorch for fast optimization and batch processing
+- **Modular Design**: Easily extend with custom models following the same base class pattern
 
 ## Who Should Use PhyTorch?
 
 PhyTorch is designed for researchers in plant physiology, ecology, and agriculture who need to:
 
-1. **Extract Parameters**: Estimate Vcmax, Jmax, g₁, and other physiological traits from gas exchange data
-2. **Handle Large Datasets**: Fit models to hundreds or thousands of A-Ci curves efficiently
-3. **Ensure Robustness**: Avoid unphysical parameter estimates through automatic constraint enforcement
-4. **Accelerate Research**: Spend less time debugging optimization, more time analyzing results
-5. **Enable High-Throughput Phenotyping**: Process large-scale breeding trial data rapidly
+1. **Fit Physiological Models Simply**: One unified interface for all model types eliminates API complexity
+2. **Scale from Simple to Complex**: Start with basic curve fitting, graduate to multi-parameter models without learning new syntax
+3. **Process Data Efficiently**: GPU acceleration and batch processing for high-throughput analysis
+4. **Visualize Results Automatically**: Built-in adaptive plotting for immediate quality assessment
+5. **Ensure Reproducibility**: Consistent API across models promotes standardized analysis workflows
 
 ## Getting Started
 
 ```bash
-pip install phytorch
+pip install phytorch-lib
 ```
 
 Check out the [Installation Guide](./installation.md) for detailed instructions and the [Getting Started Tutorial](./getting-started.md) to fit your first model.
