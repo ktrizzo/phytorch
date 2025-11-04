@@ -6,34 +6,21 @@ sidebar_position: 2
 
 ## Requirements
 
-PhyTorch requires Python 3.8 or later and the following dependencies:
-
-- PyTorch
-- NumPy
-- SciPy
-- Pandas
-- Matplotlib
+PhyTorch requires Python 3.7 or later. All dependencies (PyTorch, NumPy, SciPy, Pandas, Matplotlib) will be automatically installed.
 
 ## Installation via pip (Recommended)
-
-First, install the required dependencies:
-
-```bash
-pip install torch numpy scipy pandas matplotlib
-```
-
-Then install PhyTorch:
 
 ```bash
 pip install phytorch-lib
 ```
 
-## Installation via Conda
+## Using with Conda Environments
 
-You can also install PhyTorch using conda:
+If you use conda for environment management:
 
 ```bash
-conda install pytorch numpy scipy pandas matplotlib -c pytorch -c conda-forge
+conda create -n phytorch python=3.9
+conda activate phytorch
 pip install phytorch-lib
 ```
 
@@ -71,14 +58,6 @@ print("PhyTorch installed successfully!")
 ```
 
 ## Troubleshooting
-
-### Import Errors
-
-If you encounter import errors, ensure all dependencies are installed:
-
-```bash
-pip install torch numpy scipy pandas matplotlib
-```
 
 ### GPU Not Detected
 

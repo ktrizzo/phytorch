@@ -165,9 +165,6 @@ function GetStartedSection() {
             <h3 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>
               <strong>1. Install PhyTorch:</strong>
             </h3>
-            <p style={{ marginBottom: '1rem', color: 'var(--ifm-color-emphasis-700)' }}>
-              via pip (recommended):
-            </p>
             <pre className="code-block-bg" style={{
               padding: '1rem 1.5rem',
               borderRadius: '8px',
@@ -177,17 +174,9 @@ function GetStartedSection() {
             }}>
               <code>pip install phytorch-lib</code>
             </pre>
-            <p style={{ marginBottom: '1rem', color: 'var(--ifm-color-emphasis-700)' }}>
-              via Anaconda (from the unofficial conda-forge channel):
+            <p style={{ fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)' }}>
+              All dependencies (PyTorch, NumPy, SciPy, Pandas, Matplotlib) are automatically installed.
             </p>
-            <pre className="code-block-bg" style={{
-              padding: '1rem 1.5rem',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              border: '1px solid var(--code-border-light)'
-            }}>
-              <code>conda install phytorch-lib -c pytorch -c conda-forge</code>
-            </pre>
           </div>
 
           <div style={{ marginBottom: '3rem' }}>
