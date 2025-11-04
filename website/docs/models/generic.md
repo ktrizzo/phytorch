@@ -171,6 +171,18 @@ $$
 y = y_{max} \cdot f_{arr}(x) \cdot f_{peak}(x)
 $$
 
+where:
+
+$$
+f_{arr}(x) = \exp\left[\frac{H_a}{R}\left(\frac{1}{T_{ref}} - \frac{1}{x}\right)\right]
+$$
+
+$$
+f_{peak}(x) = \frac{1 + \exp\left[\frac{H_d}{R}\left(\frac{1}{T_{opt}} - \frac{1}{T_{ref}}\right) - \ln\left(\frac{H_d}{H_a} - 1\right)\right]}{1 + \exp\left[\frac{H_d}{R}\left(\frac{1}{T_{opt}} - \frac{1}{x}\right) - \ln\left(\frac{H_d}{H_a} - 1\right)\right]}
+$$
+
+with $R = 0.008314$ kJ/(mol·K) and $T_{ref} = 298.15$ K.
+
 ### Usage
 
 ```python
