@@ -8,7 +8,7 @@ sidebar_position: 1
 
 ## What is PhyTorch?
 
-PhyTorch is **not a plant simulator** – it's a **model fitting toolkit** designed to extract meaningful physiological parameters from experimental data. Whether you have A-Ci curves from a LI-COR 6800 or leaf reflectance spectra, PhyTorch helps you estimate:
+PhyTorch is a **model fitting toolkit** designed to extract meaningful physiological parameters from experimental data. Whether you have A-Ci curves from a LI-COR 6800 or leaf reflectance spectra, PhyTorch helps you estimate:
 
 - **Vcmax, Jmax, TPU, Rd** from photosynthesis measurements (FvCB model)
 - **g₀, g₁** stomatal sensitivity parameters (Medlyn, Ball-Berry models)

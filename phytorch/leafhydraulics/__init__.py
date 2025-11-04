@@ -1,17 +1,21 @@
 """
 Leaf Hydraulics Module
 
-This module will contain models for leaf water transport and hydraulic conductance.
+This module contains models for leaf water transport and hydraulic conductance.
+Models are available via the unified API:
 
-Planned features:
-- Leaf water potential models
-- Hydraulic conductance models
-- Water transport vulnerability curves
-- Integration with photosynthesis and stomatal conductance models
+    from phytorch import fit
+    from phytorch.models.hydraulics import Sigmoidal, SJB2018
 
-Status: Under development
+    # Fit vulnerability curve
+    result = fit(Sigmoidal(), data)
+
+    # Fit pressure-volume curve
+    result = fit(SJB2018(), data)
+
+For legacy compatibility, models are also accessible from this module.
 """
 
-__all__ = []
+from phytorch.models.hydraulics import Sigmoidal, SJB2018
 
-# Placeholder for future leaf hydraulics models
+__all__ = ['Sigmoidal', 'SJB2018']

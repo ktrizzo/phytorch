@@ -36,26 +36,39 @@ where $J$ is the electron transport rate, calculated from light response
 
 ### Basic Usage
 
+PhyTorch's unified API makes fitting photosynthesis models simple and consistent:
+
 ```python
-from phytorch import *
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
 import pandas as pd
 
-# Load LI-COR data
+# Load LI-COR A-Ci curve data
 df = pd.read_csv('your_aci_data.csv')
 
-# Initialize data object
-lcd = fvcb.initLicordata(df, preprocess=True)
+# Prepare data dictionary
+data = {
+    'Ci': df['Ci'].values,       # Intercellular CO2 (μmol/mol)
+    'Q': df['PARi'].values,       # Light intensity (μmol/m²/s)
+    'Tleaf': df['Tleaf'].values,  # Leaf temperature (°C)
+    'A': df['Photo'].values       # Net photosynthesis (μmol/m²/s)
+}
 
-# Initialize FvCB model
-# LightResp_type: 1 = non-rectangular hyperbola, 2 = rectangular hyperbola
-# TempResp_type: 1 = Arrhenius, 2 = peaked Arrhenius
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+# Fit the FvCB model (that's it!)
+result = fit(FvCB(), data)
 
-# Fit the model
-fitresult = fvcb.fit(fvcbm, learn_rate=0.08, maxiteration=20000)
+# View fitted parameters
+print(f"Vcmax25: {result.parameters['Vcmax25']:.2f} μmol/m²/s")
+print(f"Jmax25: {result.parameters['Jmax25']:.2f} μmol/m²/s")
+print(f"Rd25: {result.parameters['Rd25']:.2f} μmol/m²/s")
+print(f"R² = {result.r_squared:.4f}")
 
-# Get predictions
-predicted_A = fvcbm.predict(lcd)
+# Generate comprehensive plots
+# Includes: 1:1, A vs Ci, A vs Q, A vs T, and 3D surfaces
+result.plot()
+
+# Save the plot
+result.plot(save='fvcb_fit.png')
 ```
 
 ### Key Parameters
@@ -185,22 +198,28 @@ $$
 Fitting A-Ci (assimilation vs. intercellular CO2) curves:
 
 ```python
-from phytorch.fitting import fit_model
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+import numpy as np
 
 # Your A-Ci curve data
 data = {
-    'ci': torch.tensor([50, 100, 200, 400, 600, 800, 1000]),
-    'A': torch.tensor([5.2, 10.5, 18.3, 24.1, 26.8, 28.2, 29.1]),
-    'temperature': 25,
-    'ppfd': 1500
+    'Ci': np.array([50, 100, 200, 400, 600, 800, 1000]),
+    'Q': np.full(7, 1500),  # Constant light at 1500 μmol/m²/s
+    'Tleaf': np.full(7, 25),  # Constant temperature at 25°C
+    'A': np.array([5.2, 10.5, 18.3, 24.1, 26.8, 28.2, 29.1])
 }
 
-# Fit Vcmax, Jmax, and Rd
-result = fit_model(
-    model=FvCB(),
-    data=data,
-    params_to_fit=['Vcmax', 'Jmax', 'Rd']
-)
+# Fit the model
+result = fit(FvCB(), data)
+
+# View results
+print(f"Vcmax25: {result.parameters['Vcmax25']:.2f} μmol/m²/s")
+print(f"Jmax25: {result.parameters['Jmax25']:.2f} μmol/m²/s")
+print(f"Rd25: {result.parameters['Rd25']:.2f} μmol/m²/s")
+
+# Plot comprehensive results
+result.plot()
 ```
 
 ## Advanced Features
@@ -208,30 +227,52 @@ result = fit_model(
 ### Custom Parameter Constraints
 
 ```python
-from phytorch.fitting import fit_model
+from phytorch import fit, FitOptions
+from phytorch.models.photosynthesis import FvCB
 
-result = fit_model(
-    model=FvCB(),
-    data=data,
-    params_to_fit=['Vcmax', 'Jmax'],
+# Define custom parameter bounds
+options = FitOptions(
     bounds={
-        'Vcmax': (20, 200),
-        'Jmax': (40, 400)
-    },
-    constraints={
-        'Jmax/Vcmax': (1.5, 2.5)  # Typical ratio constraint
+        'Vcmax25': (20, 200),
+        'Jmax25': (40, 400),
+        'Rd25': (0, 5)
     }
 )
+
+result = fit(FvCB(), data, options)
 ```
 
-### Batch Processing
-
-Process multiple datasets efficiently:
+### Custom Initial Guesses
 
 ```python
-# Stack multiple A-Ci curves
-ci_batch = torch.stack([ci_curve1, ci_curve2, ci_curve3])
-A_batch = model.forward(ci=ci_batch, temperature=25, ppfd=1500)
+from phytorch import fit, FitOptions
+
+# Provide initial parameter estimates
+options = FitOptions(
+    initial_guess={
+        'Vcmax25': 100,
+        'Jmax25': 180,
+        'Rd25': 1.5
+    }
+)
+
+result = fit(FvCB(), data, options)
+```
+
+### Making Predictions
+
+```python
+# Fit the model
+result = fit(FvCB(), training_data)
+
+# Make predictions on new data
+new_data = {
+    'Ci': np.linspace(50, 1000, 100),
+    'Q': np.full(100, 1500),
+    'Tleaf': np.full(100, 25)
+}
+
+predictions = result.predict(new_data)
 ```
 
 ## References

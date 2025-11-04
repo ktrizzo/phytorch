@@ -1,14 +1,14 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='phytorch',
-    version='0.1.0',
+    name='phytorch-lib',
+    version='0.1.1',
     author='Tong Lei, Kyle T. Rizzo, Brian N. Bailey',
     author_email='',
-    description='PhyTorch is a comprehensive PyTorch-based toolkit for modeling plant physiological processes including photosynthesis, stomatal conductance, leaf hydraulics, and optical properties.',
+    description='PhyTorch is a PyTorch-based modeling toolkit for fitting common plant physiological models of photosynthesis, stomatal conductance, leaf hydraulics, and optical properties.',
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    url='https://github.com/PlantSimulationLab/phytorch',
+    url='https://github.com/ktrizzo/phytorch',
     packages=find_packages(),
     include_package_data=True,
     package_data={
@@ -40,5 +40,5 @@ setup(
         "Topic :: Scientific/Engineering :: Physics",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
-    keywords='photosynthesis stomatal-conductance plant-physiology pytorch machine-learning',
+    keywords='photosynthesis stomatal-conductance hydraulics optics plant-physiology pytorch',
 )

@@ -14,7 +14,7 @@ function HomepageHeader() {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText('pip install phytorch');
+    navigator.clipboard.writeText('pip install phytorch-lib');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -73,7 +73,7 @@ function HomepageHeader() {
             border: '1px solid rgba(0, 0, 0, 0.1)',
             margin: 0
           }}>
-            <code>pip install phytorch</code>
+            <code>pip install phytorch-lib</code>
           </pre>
           <button
             onClick={copyToClipboard}
@@ -124,7 +124,7 @@ function ReferencesSection() {
               display: 'block',
               marginBottom: '1.5rem'
             }}>
-            PhyTorch: A Framework for Physiological Plant Modeling
+            PhoTorch: a robust and generalized biochemical photosynthesis model fitting package based on PyTorch
           </Link>
           <pre className="code-block-bg" style={{
             padding: '1.5rem',
@@ -134,17 +134,17 @@ function ReferencesSection() {
             overflow: 'auto',
             border: '1px solid var(--code-border-light)'
           }}>
-            <code>{`@article{phytorch2024,
-  title = {{PhyTorch: A Framework for Physiological Plant Modeling}},
-  author = {[Authors]},
-  journal = {[Journal]},
-  year = {2024},
-  url = {https://phytorch.org}
+            <code>{`@article{lei2025photorch,
+  title={PhoTorch: a robust and generalized biochemical photosynthesis model fitting package based on PyTorch},
+  author={Lei, Tong and Rizzo, Kyle T and Bailey, Brian N},
+  journal={Photosynthesis Research},
+  volume={163},
+  number={2},
+  pages={21},
+  year={2025},
+  publisher={Springer}
 }`}</code>
           </pre>
-          <p style={{ marginTop: '1.5rem', fontSize: '1rem' }}>
-            Based on <Link to="/docs/intro">PhoTorch</Link> for photosynthesis modeling.
-          </p>
         </div>
       </div>
     </section>
@@ -175,7 +175,7 @@ function GetStartedSection() {
               border: '1px solid var(--code-border-light)',
               marginBottom: '1.5rem'
             }}>
-              <code>pip install phytorch</code>
+              <code>pip install phytorch-lib</code>
             </pre>
             <p style={{ marginBottom: '1rem', color: 'var(--ifm-color-emphasis-700)' }}>
               via Anaconda (from the unofficial conda-forge channel):
@@ -186,13 +186,13 @@ function GetStartedSection() {
               fontSize: '1rem',
               border: '1px solid var(--code-border-light)'
             }}>
-              <code>conda install phytorch -c pytorch -c conda-forge</code>
+              <code>conda install phytorch-lib -c pytorch -c conda-forge</code>
             </pre>
           </div>
 
           <div style={{ marginBottom: '3rem' }}>
             <h3 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>
-              <strong>2. Fit a photosynthesis model:</strong>
+              <strong>2. Fit any model with the unified API:</strong>
             </h3>
             <pre className="code-block-bg" style={{
               padding: '1.5rem',
@@ -202,21 +202,31 @@ function GetStartedSection() {
               border: '1px solid var(--code-border-light)',
               overflow: 'auto'
             }}>
-              <code>{`import torch
-from phytorch.models import FvCB
-from phytorch.fitting import fit_model
+              <code>{`from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+import pandas as pd
 
-# Load your photosynthesis data
-data = torch.load('aci_curve.pt')
+# Load your A-Ci curve data
+df = pd.read_csv('aci_data.csv')
 
-# Initialize FvCB model
-model = FvCB()
+# Prepare data dictionary
+data = {
+    'Ci': df['Ci'].values,
+    'Q': df['PARi'].values,
+    'Tleaf': df['Tleaf'].values,
+    'A': df['Photo'].values
+}
 
-# Fit the model
-result = fit_model(model, data)
+# Fit the model (that's it!)
+result = fit(FvCB(), data)
 
-print(f"Fitted Vcmax: {result.params['Vcmax']:.2f}")
-print(f"Fitted Jmax: {result.params['Jmax']:.2f}")`}</code>
+# View results
+print(f"Vcmax25: {result.parameters['Vcmax25']:.2f}")
+print(f"Jmax25: {result.parameters['Jmax25']:.2f}")
+print(f"R² = {result.r_squared:.4f}")
+
+# Plot comprehensive results (1:1, response curves, 3D surfaces)
+result.plot()`}</code>
             </pre>
           </div>
         </div>
@@ -229,8 +239,8 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
+      title="PhyTorch"
+      description="A unified Python toolkit for fitting plant physiology models">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

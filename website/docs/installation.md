@@ -25,7 +25,7 @@ pip install torch numpy scipy pandas matplotlib
 Then install PhyTorch:
 
 ```bash
-pip install phytorch
+pip install phytorch-lib
 ```
 
 ## Installation via Conda
@@ -34,7 +34,7 @@ You can also install PhyTorch using conda:
 
 ```bash
 conda install pytorch numpy scipy pandas matplotlib -c pytorch -c conda-forge
-pip install phytorch
+pip install phytorch-lib
 ```
 
 ## Installation from Source

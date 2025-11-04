@@ -4,133 +4,204 @@ sidebar_position: 3
 
 # Getting Started
 
-This guide will walk you through fitting your first photosynthesis model using PhyTorch.
+This guide will walk you through fitting your first model using PhyTorch's unified API.
 
-## Basic Photosynthesis Model Fitting
+## PhyTorch's Unified API
 
-Let's fit the Farquhar-von Caemmerer-Berry (FvCB) model to LI-COR A-Ci curve data.
-
-### 1. Import Required Modules
+PhyTorch provides a simple, consistent interface for fitting models across all domains:
 
 ```python
-from phytorch import *
-import pandas as pd
-import torch
-import matplotlib.pyplot as plt
+from phytorch import fit
+
+# Universal API for all models
+result = fit(model, data, options)
 ```
 
-### 2. Load Your Data
+All models follow the same pattern:
+1. **Import your model** from the appropriate module
+2. **Prepare your data** as a dictionary with variable names
+3. **Fit the model** with a single function call
+4. **Visualize results** with built-in plotting
 
-PhyTorch works with pandas DataFrames containing LI-COR gas exchange data:
+## Quick Start: Fitting a Simple Model
 
-```python
-# Load your LI-COR data (CSV format)
-df = pd.read_csv('your_licor_data.csv')
-
-# Initialize LI-COR data object with preprocessing
-lcd = fvcb.initLicordata(df, preprocess=True)
-```
-
-The data should contain columns for:
-- `Ci` - Intercellular CO2 concentration (μmol/mol)
-- `Photo` - Net photosynthesis rate (μmol/m²/s)
-- `Tleaf` - Leaf temperature (°C)
-- `PARi` - Incident photosynthetically active radiation (μmol/m²/s)
-
-### 3. Initialize and Fit the FvCB Model
+Let's start with a simple curve-fitting example:
 
 ```python
-# Initialize FvCB model
-# LightResp_type: 1 = non-rectangular hyperbola, 2 = rectangular hyperbola
-# TempResp_type: 1 = Arrhenius, 2 = peaked Arrhenius
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+from phytorch import fit
+from phytorch.models.generic import Sigmoidal
+import numpy as np
 
-# Fit the model
-fitresult = fvcb.fit(
-    fvcbm,
-    learn_rate=0.08,      # Learning rate for optimization
-    maxiteration=20000    # Maximum iterations
-)
-```
+# Prepare your data
+data = {
+    'x': np.array([-3, -2, -1, 0, 1, 2, 3]),
+    'y': np.array([0.5, 1.2, 2.5, 5.0, 7.5, 9.0, 9.8])
+}
 
-### 4. View Results
-
-```python
-# Print fitted parameters
-print("Fitted Parameters:")
-print(f"Vcmax25: {fitresult.params['Vcmax25']:.2f} μmol/m²/s")
-print(f"Jmax25: {fitresult.params['Jmax25']:.2f} μmol/m²/s")
-print(f"Rd25: {fitresult.params['Rd25']:.2f} μmol/m²/s")
-print(f"Tp25: {fitresult.params['Tp25']:.2f} μmol/m²/s")
-
-# Get fitted values
-fitted_values = fvcbm.predict(lcd)
-```
-
-### 5. Visualize A-Ci Curves
-
-```python
-# Plot observed vs predicted
-plt.figure(figsize=(10, 6))
-plt.scatter(lcd.Ci, lcd.Photo, alpha=0.6, label='Observed')
-plt.scatter(lcd.Ci, fitted_values, alpha=0.6, label='Fitted')
-plt.xlabel('Ci (μmol/mol)')
-plt.ylabel('A (μmol/m²/s)')
-plt.legend()
-plt.title('FvCB Model Fit')
-plt.grid(True, alpha=0.3)
-plt.show()
-```
-
-## Stomatal Conductance Models
-
-PhyTorch supports multiple stomatal conductance models including Medlyn (MED), Ball-Woodrow-Berry (BWB), and Buckley-Mott-Farquhar (BMF).
-
-```python
-from phytorch import *
-import pandas as pd
-
-# Load your LI-COR data
-df = pd.read_csv('your_licor_data.csv')
-lcd = stomatal.initLicordata(df, preprocess=True)
-
-# Fit Medlyn model
-medlyn_model = stomatal.model(lcd, model_type='MED')
-medlyn_result = stomatal.fit(medlyn_model, learn_rate=0.01, maxiteration=10000)
+# Fit the model (that's it!)
+result = fit(Sigmoidal(), data)
 
 # View fitted parameters
-print(f"g0: {medlyn_result.params['g0']:.4f} mol/m²/s")
-print(f"g1: {medlyn_result.params['g1']:.2f}")
+print(result.parameters)
 
-# Fit Ball-Woodrow-Berry model
-bwb_model = stomatal.model(lcd, model_type='BWB')
-bwb_result = stomatal.fit(bwb_model, learn_rate=0.01, maxiteration=10000)
+# Plot the results
+result.plot()
 ```
 
-## Temperature Response Options
+## Example: Photosynthesis Model
 
-PhyTorch supports different temperature response functions:
-
-### TempResp_type Options
-
-- **Type 1**: Arrhenius function
-  ```
-  f(T) = f25 * exp[Ha/R * (1/298.15 - 1/Tk)]
-  ```
-
-- **Type 2**: Peaked Arrhenius function (includes deactivation)
-  ```
-  f(T) = f25 * exp[Ha/R * (1/298.15 - 1/Tk)] * [1 + exp(S*298.15 - Hd)/(R*298.15)] / [1 + exp(S*Tk - Hd)/(R*Tk)]
-  ```
+Fitting a photosynthesis model is just as simple:
 
 ```python
-# Use peaked Arrhenius for temperature-sensitive parameters
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+import pandas as pd
+
+# Load your A-Ci curve data
+df = pd.read_csv('aci_data.csv')
+
+# Prepare data dictionary
+data = {
+    'Ci': df['Ci'].values,      # Intercellular CO2 (μmol/mol)
+    'Q': df['PARi'].values,      # Light intensity (μmol/m²/s)
+    'Tleaf': df['Tleaf'].values, # Leaf temperature (°C)
+    'A': df['Photo'].values      # Net photosynthesis (μmol/m²/s)
+}
+
+# Fit the FvCB model
+result = fit(FvCB(), data)
+
+# View fitted parameters
+print(f"Vcmax25: {result.parameters['Vcmax25']:.2f} μmol/m²/s")
+print(f"Jmax25: {result.parameters['Jmax25']:.2f} μmol/m²/s")
+print(f"R² = {result.r_squared:.4f}")
+
+# Generate comprehensive plots
+# For photosynthesis: 1:1, A vs Ci, A vs Q, A vs T, plus 3D surfaces
+result.plot()
 ```
+
+## Example: Hydraulic Model
+
+Fitting pressure-volume curves uses the same unified API:
+
+```python
+from phytorch import fit
+from phytorch.models.hydraulics import SJB2018
+import numpy as np
+
+# Prepare P-V curve data
+data = {
+    'w': np.array([0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00]),
+    'psi': np.array([-2.8, -2.1, -1.5, -1.0, -0.6, -0.3, -0.1])
+}
+
+# Fit the SJB2018 model
+result = fit(SJB2018(), data)
+
+# View fitted parameters
+print(f"pi_o: {result.parameters['pi_o']:.2f} MPa")
+print(f"w_tlp: {result.parameters['w_tlp']:.2f}")
+print(f"epsilon: {result.parameters['epsilon']:.2f}")
+
+# Plot predicted vs observed and model fit
+result.plot()
+```
+
+## Available Model Categories
+
+PhyTorch provides a comprehensive library of models across multiple domains:
+
+### Generic Models
+Perfect for general curve fitting:
+- `Linear` - Linear regression
+- `Sigmoidal` - Rational sigmoid curves
+- `RectangularHyperbola` - Michaelis-Menten kinetics
+- `NonrectangularHyperbola` - Non-rectangular hyperbola
+- `Arrhenius` - Temperature response
+- `PeakedArrhenius` - Temperature response with high-temp deactivation
+- `Gaussian` - Bell-shaped curves
+- `Weibull` - Weibull distributions
+- `Beta` - Beta distributions
+
+### Hydraulics Models
+For plant water relations:
+- `Sigmoidal` - Simple hydraulic vulnerability curves
+- `SJB2018` - Pressure-volume curves (Sack, John, Buckley 2018)
+
+### Photosynthesis Models
+For leaf gas exchange:
+- `FvCB` - Farquhar-von Caemmerer-Berry C3 photosynthesis
+
+All models use the same simple API pattern!
+
+## Built-in Plotting
+
+All fit results include automatic plotting functionality that adapts to the model type:
+
+### 1D Models (Single Input)
+```python
+result = fit(Sigmoidal(), data)
+result.plot()  # Shows: Predicted vs Observed + Model Fit curve
+```
+
+### Multi-dimensional Models
+```python
+result = fit(SomeMultiDModel(), data)
+result.plot()  # Shows: 1:1 plot + response curves for each variable
+```
+
+### Photosynthesis Models (Special Treatment)
+```python
+result = fit(FvCB(), data)
+result.plot()  # Shows: 1:1, A vs Ci, A vs Q, A vs T,
+               # plus 3D surfaces (Ci-Q-A and Ci-T-A)
+```
+
+Save plots directly:
+```python
+result.plot(save='my_fit.png', show=False)
+```
+
+## Customization Options
+
+### Custom Parameter Bounds
+```python
+from phytorch import fit, FitOptions
+
+options = FitOptions(
+    bounds={
+        'ymax': (0, 100),
+        'x50': (-5, 5)
+    }
+)
+
+result = fit(Sigmoidal(), data, options)
+```
+
+### Custom Optimizer Settings
+```python
+options = FitOptions(
+    optimizer='scipy',
+    maxiter=5000
+)
+
+result = fit(model, data, options)
+```
+
+## Why PhyTorch?
+
+### Simple and Consistent
+One unified API for all models - no need to learn different interfaces for different model types.
+
+### Comprehensive
+From simple linear regression to complex photosynthesis models, all in one toolkit.
+
+### Automatic Visualization
+Built-in plotting adapts to your model type, making it easy to verify fit quality.
 
 ## Next Steps
 
 - Explore different [photosynthesis models](./models/photosynthesis.md)
-- Learn about [stomatal conductance models](./models/stomatal-conductance.md)
 - Check out the [API Reference](./api/index.md) for detailed documentation
-- See [examples and tutorials](./tutorials/index.md) for more advanced use cases
+- See the complete [model library](./api/index.md#available-models)

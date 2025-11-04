@@ -6,81 +6,206 @@ sidebar_position: 1
 
 Complete API reference for PhyTorch modules and functions.
 
-## Core Modules
+## Unified API
 
-### `phytorch.models`
+PhyTorch provides a simple, consistent interface for all models:
 
-Photosynthesis and stomatal conductance models.
+```python
+from phytorch import fit
 
-#### Photosynthesis Models
-- [`FvCB`](./models/fvcb.md) - Farquhar-von Caemmerer-Berry photosynthesis model
+result = fit(model, data, options=None)
+```
 
-#### Stomatal Conductance Models
-- [`Medlyn`](./models/medlyn.md) - Medlyn (USO) stomatal conductance model
-- [`BallWoodrowBerry`](./models/bwb.md) - Ball-Woodrow-Berry model
-- [`BuckleyMottFarquhar`](./models/bmf.md) - Buckley-Mott-Farquhar model
-- [`BallBerryLeuning`](./models/bbl.md) - Ball-Berry-Leuning model
+### Parameters
+- **model**: Any PhyTorch model instance
+- **data**: Dictionary mapping variable names to numpy arrays
+- **options**: Optional `FitOptions` object for customization
 
-### `phytorch.fitting`
+### Returns
+- **FitResult**: Object containing fitted parameters, predictions, statistics, and plotting methods
 
-Model fitting and parameter estimation.
+## Core Function
 
-- [`fit_model()`](./fitting/fit_model.md) - Fit model parameters to data
-- [`FitResult`](./fitting/fit_result.md) - Container for fitting results
+### `fit(model, data, options=None)`
 
-### `phytorch.temperature`
+Universal fitting function for all PhyTorch models.
 
-Temperature response functions.
+```python
+from phytorch import fit
+from phytorch.models.generic import Sigmoidal
 
-- [`Arrhenius`](./temperature/arrhenius.md) - Arrhenius temperature response
-- [`PeakedArrhenius`](./temperature/peaked_arrhenius.md) - Peaked Arrhenius response
-- [`Q10`](./temperature/q10.md) - Q10 temperature response
+data = {'x': x_data, 'y': y_data}
+result = fit(Sigmoidal(), data)
 
-### `phytorch.coupled`
+# Access results
+print(result.parameters)  # Fitted parameter values
+print(result.r_squared)   # Goodness of fit
+predictions = result.predict(new_data)
+result.plot()  # Automatic visualization
+```
 
-Coupled photosynthesis-conductance models.
+## Available Models
 
-- [`CoupledModel`](./coupled/coupled_model.md) - Coupled A-gs model solver
+### Generic Models (`phytorch.models.generic`)
 
-### `phytorch.utils`
+General-purpose curve fitting models:
 
-Utility functions and helpers.
+| Model | Description | Required Data |
+|-------|-------------|---------------|
+| `Linear` | Linear regression y = a*x + b | `x`, `y` |
+| `Sigmoidal` | Rational sigmoid curve | `x`, `y` |
+| `RectangularHyperbola` | Michaelis-Menten kinetics | `x`, `y` |
+| `NonrectangularHyperbola` | Non-rectangular hyperbola | `x`, `y` |
+| `Arrhenius` | Temperature response | `x`, `y` |
+| `PeakedArrhenius` | Peaked temperature response | `x`, `y` |
+| `Gaussian` | Bell-shaped curve | `x`, `y` |
+| `Weibull` | Weibull distribution PDF | `x`, `y` |
+| `Beta` | Beta distribution | `x`, `y` |
 
-- [`convert_units()`](./utils/convert_units.md) - Unit conversion utilities
-- [`validate_data()`](./utils/validate_data.md) - Data validation
+Example:
+```python
+from phytorch import fit
+from phytorch.models.generic import RectangularHyperbola
+
+data = {'x': substrate_conc, 'y': reaction_rate}
+result = fit(RectangularHyperbola(), data)
+```
+
+### Hydraulics Models (`phytorch.models.hydraulics`)
+
+Plant water relations models:
+
+| Model | Description | Required Data |
+|-------|-------------|---------------|
+| `Sigmoidal` | Hydraulic vulnerability curve | `x`, `psi` |
+| `SJB2018` | Pressure-volume curve (Sack, John, Buckley 2018) | `w`, `psi` |
+
+Example:
+```python
+from phytorch import fit
+from phytorch.models.hydraulics import SJB2018
+
+data = {'w': relative_water_content, 'psi': water_potential}
+result = fit(SJB2018(), data)
+print(f"Turgor loss point: {result.parameters['w_tlp']:.3f}")
+```
+
+### Photosynthesis Models (`phytorch.models.photosynthesis`)
+
+Leaf gas exchange models:
+
+| Model | Description | Required Data |
+|-------|-------------|---------------|
+| `FvCB` | Farquhar-von Caemmerer-Berry C3 photosynthesis | `Ci`, `Q`, `Tleaf`/`T`, `A` |
+
+Example:
+```python
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
+data = {
+    'Ci': intercellular_co2,
+    'Q': light_intensity,
+    'Tleaf': leaf_temperature,
+    'A': net_photosynthesis
+}
+result = fit(FvCB(), data)
+result.plot()  # Generates comprehensive photosynthesis plots
+```
+
+## FitResult Object
+
+The `FitResult` object returned by `fit()` contains:
+
+### Attributes
+- `parameters`: Dictionary of fitted parameter values
+- `r_squared`: Coefficient of determination
+- `rmse`: Root mean squared error
+- `data`: Original data used for fitting
+- `model`: The fitted model instance
+
+### Methods
+- `predict(data)`: Generate predictions for new data
+- `plot(save=None, show=True)`: Visualize fit results
+
+```python
+# Using FitResult
+result = fit(model, data)
+
+# Access fitted parameters
+vcmax = result.parameters['Vcmax25']
+
+# Make predictions
+predictions = result.predict(new_data)
+
+# Plot results
+result.plot(save='my_fit.png')
+```
+
+## FitOptions
+
+Customize the fitting process:
+
+```python
+from phytorch import fit, FitOptions
+
+options = FitOptions(
+    optimizer='scipy',           # 'scipy' or 'adam'
+    maxiter=5000,                # Maximum iterations
+    bounds={'param': (0, 100)}   # Parameter bounds
+)
+
+result = fit(model, data, options)
+```
+
+### FitOptions Parameters
+- `optimizer`: Optimizer to use ('scipy', 'adam')
+- `maxiter`: Maximum number of iterations
+- `bounds`: Dictionary of parameter bounds `{param: (lower, upper)}`
+- `initial_guess`: Dictionary of initial parameter values
+
+## Model Base Class
+
+All models inherit from the `Model` base class and implement:
+
+```python
+class Model:
+    def forward(self, data: dict, parameters: dict) -> np.ndarray:
+        """Compute model predictions"""
+        pass
+
+    def parameter_info(self) -> dict:
+        """Return parameter bounds and metadata"""
+        pass
+
+    def required_data(self) -> list:
+        """Return list of required data fields"""
+        pass
+
+    def initial_guess(self, data: dict) -> dict:
+        """Generate initial parameter estimates"""
+        pass
+```
 
 ## Quick Reference
 
-### Common Workflows
-
-#### Fit Photosynthesis Model
+### Fitting a Model
 ```python
-from phytorch.models import FvCB
-from phytorch.fitting import fit_model
+from phytorch import fit
+from phytorch.models.generic import Sigmoidal
 
-result = fit_model(FvCB(), data, params_to_fit=['Vcmax', 'Jmax'])
+result = fit(Sigmoidal(), {'x': x_data, 'y': y_data})
 ```
 
-#### Fit Stomatal Conductance Model
+### Plotting Results
 ```python
-from phytorch.models import Medlyn
-from phytorch.fitting import fit_model
-
-result = fit_model(Medlyn(), data, params_to_fit=['g0', 'g1'])
+result.plot()                    # Show plot
+result.plot(save='fit.png')      # Save plot
+result.plot(save='fit.png', show=False)  # Save without showing
 ```
 
-#### Coupled Model
+### Making Predictions
 ```python
-from phytorch.coupled import CoupledModel
-from phytorch.models import FvCB, Medlyn
-
-coupled = CoupledModel(FvCB(), Medlyn())
-result = coupled.solve(Ca=400, temperature=25, ppfd=1500, VPD=1.5)
+new_data = {'x': new_x_values, 'y': new_y_values}
+predictions = result.predict(new_data)
 ```
-
-## Index
-
-- [Models](./models/index.md)
-- [Fitting](./fitting/index.md)
-- [Temperature](./temperature/index.md)
-- [Utilities](./utils/index.md)
