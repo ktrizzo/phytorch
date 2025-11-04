@@ -73,11 +73,13 @@ result.plot()
 
 ## Rectangular Hyperbola
 
-Michaelis-Menten kinetics:
+Saturating hyperbola commonly found in resource-limited and biological processes:
 
 $$
-y = \frac{V_{max} \cdot x}{K_m + x}
+y = \frac{y_{max} \cdot x}{x_{50} + x}
 $$
+
+This model describes processes such as enzyme kinetics (Michaelis-Menten), light response curves, and nutrient uptake.
 
 ### Usage
 
@@ -85,23 +87,23 @@ $$
 from phytorch import fit
 from phytorch.models.generic import RectangularHyperbola
 
-# Enzyme kinetics data
+# Saturating response data
 data = {
     'x': np.array([0.5, 1, 2, 5, 10, 20, 50]),
     'y': np.array([2.5, 4.5, 7.5, 12, 15, 17, 19])
 }
 
 result = fit(RectangularHyperbola(), data)
-print(f"Vmax: {result.parameters['Vmax']:.2f}")
-print(f"Km: {result.parameters['Km']:.2f}")
+print(f"ymax: {result.parameters['ymax']:.2f}")
+print(f"x50: {result.parameters['x50']:.2f}")
 ```
 
 ### Parameters
 
 | Parameter | Description | Units |
 |-----------|-------------|-------|
-| `Vmax` | Maximum velocity | - |
-| `Km` | Michaelis constant | - |
+| `ymax` | Maximum asymptotic value | - |
+| `x50` | Half-saturation constant | - |
 
 ## Non-rectangular Hyperbola
 
@@ -308,3 +310,4 @@ for i, result in enumerate(results):
 
 - Michaelis, L., & Menten, M. L. (1913). The kinetics of invertase action. *Biochem. z*, 49, 333-369.
 - Arrhenius, S. (1889). On the reaction velocity of the inversion of cane sugar by acids. *Z. Phys. Chem*, 4, 226-248.
+- Thornley, J. H. M., & Johnson, I. R. (1990). *Plant and Crop Modelling: A Mathematical Approach to Plant and Crop Physiology*. Oxford University Press.

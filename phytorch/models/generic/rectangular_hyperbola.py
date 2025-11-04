@@ -1,23 +1,24 @@
-"""Rectangular hyperbola (Michaelis-Menten) model."""
+"""Rectangular hyperbola model."""
 
 import numpy as np
 from phytorch.models.base import Model
 
 
 class RectangularHyperbola(Model):
-    """Rectangular hyperbola (Michaelis-Menten) curve model.
+    """Rectangular hyperbola curve model.
 
     Model equation:
-        y(x) = (ymax * x) / (K + x)
+        y(x) = (ymax * x) / (x50 + x)
 
-    where ymax is the maximum asymptotic value and K is the half-saturation
+    where ymax is the maximum asymptotic value and x50 is the half-saturation
     constant (x value at half-maximum).
 
-    This is widely used for substrate saturation kinetics, light response curves,
-    and other saturating responses in plant physiology.
+    This saturating hyperbola is commonly found in resource-limited and biological
+    processes such as enzyme kinetics (Michaelis-Menten), light response curves,
+    and nutrient uptake.
 
     Reference:
-        TODO: Add proper citation
+        Michaelis, L., & Menten, M. L. (1913). The kinetics of invertase action.
     """
 
     def forward(self, data: dict, parameters: dict) -> np.ndarray:
@@ -27,7 +28,7 @@ class RectangularHyperbola(Model):
             data: {'x': independent variable}
             parameters: {
                 'ymax': maximum asymptotic y value,
-                'K': half-saturation constant
+                'x50': half-saturation constant
             }
 
         Returns:
@@ -35,9 +36,9 @@ class RectangularHyperbola(Model):
         """
         x = np.asarray(data['x'])
         ymax = parameters['ymax']
-        K = parameters['K']
+        x50 = parameters['x50']
 
-        return (ymax * x) / (K + x)
+        return (ymax * x) / (x50 + x)
 
     def parameter_info(self) -> dict:
         return {
@@ -48,12 +49,12 @@ class RectangularHyperbola(Model):
                 'description': 'Maximum asymptotic y value',
                 'symbol': 'y_max'
             },
-            'K': {
+            'x50': {
                 'default': 1.0,
                 'bounds': (0.0, np.inf),
                 'units': '',
                 'description': 'Half-saturation constant (x at y = ymax/2)',
-                'symbol': 'K'
+                'symbol': 'x_{50}'
             }
         }
 
@@ -65,7 +66,7 @@ class RectangularHyperbola(Model):
 
         Uses data-driven heuristics:
         - ymax: maximum y value * 1.1 (to account for asymptote)
-        - K: x value at half-maximum
+        - x50: x value at half-maximum
         """
         x = np.asarray(data['x'])
         y = np.asarray(data['y'])
@@ -73,16 +74,16 @@ class RectangularHyperbola(Model):
         # Estimate ymax from maximum y
         ymax_guess = np.max(y) * 1.1
 
-        # Estimate K from x at half-maximum
+        # Estimate x50 from x at half-maximum
         half_max = ymax_guess / 2
         idx_half = np.argmin(np.abs(y - half_max))
-        K_guess = x[idx_half]
+        x50_guess = x[idx_half]
 
-        # Ensure K is positive
-        if K_guess <= 0:
-            K_guess = np.median(x[x > 0]) if np.any(x > 0) else 1.0
+        # Ensure x50 is positive
+        if x50_guess <= 0:
+            x50_guess = np.median(x[x > 0]) if np.any(x > 0) else 1.0
 
         return {
             'ymax': ymax_guess,
-            'K': K_guess
+            'x50': x50_guess
         }
