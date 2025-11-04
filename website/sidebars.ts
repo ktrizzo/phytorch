@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'models/photosynthesis',
         'models/stomatal-conductance',
         'models/hydraulics',
+        'models/canopy',
       ],
     },
     {

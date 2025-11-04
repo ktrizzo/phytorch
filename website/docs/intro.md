@@ -22,6 +22,7 @@ The same three-line pattern works for:
 - **Hydraulic models** (vulnerability curves, pressure-volume relationships)
 - **Photosynthesis models** (biochemical C3 photosynthesis with environmental responses)
 - **Stomatal conductance models** (empirical and semi-empirical gs models)
+- **Canopy architecture models** (leaf angle distribution with canonical type classification)
 
 ## Philosophy
 
@@ -43,6 +44,7 @@ Building on [PhoTorch](https://github.com/GEMINI-Breeding/photorch), PhyTorch ex
   - 2 hydraulic models (vulnerability and P-V curves)
   - Photosynthesis (FvCB with temperature and light responses)
   - Stomatal conductance (Medlyn, Ball-Berry, and more)
+  - Canopy architecture (leaf angle distribution with classification)
 - **Automatic Visualization**: Built-in plotting adapts to model type (1D curves, 3D surfaces for photosynthesis)
 - **Smart Initialization**: Auto-generates parameter starting values from your data
 - **GPU-Accelerated**: Leverages PyTorch for fast optimization and batch processing
