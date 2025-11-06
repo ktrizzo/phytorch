@@ -50,9 +50,9 @@ def fit_with_scipy(
         # Fit only specified parameters
         fit_params = fit_params_list
 
-    # Get observed data (use first required field as dependent variable)
+    # Get observed data (use last required field as dependent variable)
     required_fields = model.required_data()
-    y_field = required_fields[1] if len(required_fields) > 1 else required_fields[-1]
+    y_field = required_fields[-1]  # Always use last field as dependent variable
     y_obs = np.asarray(data[y_field])
 
     # Get initial guess
@@ -92,17 +92,21 @@ def fit_with_scipy(
     x_dummy = np.arange(len(y_obs))
 
     # Run optimization
+    # Build kwargs for curve_fit
+    curve_fit_kwargs = {
+        'p0': p0,
+        'bounds': bounds,
+        'maxfev': options.get('max_iterations', 10000)
+    }
+
+    # Only add tolerances if explicitly specified (use scipy defaults otherwise)
+    if 'ftol' in options:
+        curve_fit_kwargs['ftol'] = options['ftol']
+    if 'xtol' in options:
+        curve_fit_kwargs['xtol'] = options['xtol']
+
     try:
-        popt, pcov = curve_fit(
-            model_func,
-            x_dummy,
-            y_obs,
-            p0=p0,
-            bounds=bounds,
-            maxfev=options.get('max_iterations', 10000),
-            ftol=options.get('ftol', 1e-8),
-            xtol=options.get('xtol', 1e-8)
-        )
+        popt, pcov = curve_fit(model_func, x_dummy, y_obs, **curve_fit_kwargs)
         converged = True
     except RuntimeError as e:
         # Optimization failed to converge
