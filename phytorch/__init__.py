@@ -14,14 +14,12 @@ from .fit import fit
 from . import models
 from . import core
 from . import photosynthesis
-from . import stomatalconductance
 from . import leafoptics
 from . import leafhydraulics
 from . import util
 
 # Convenience imports (legacy)
 from . import photosynthesis as fvcb
-from . import stomatalconductance as stomatal
 from . import leafoptics as prospect
 
 __all__ = [
@@ -29,11 +27,9 @@ __all__ = [
     "models",
     "core",
     "photosynthesis",
-    "stomatalconductance",
     "leafoptics",
     "leafhydraulics",
     "util",
     "fvcb",
-    "stomatal",
     "prospect",
 ]

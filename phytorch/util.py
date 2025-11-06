@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from phytorch.photosynthesis.evaluate import evaluateFvCB
-from phytorch.stomatalconductance.evaluate import evaluateBMF
-from phytorch import stomatalconductance as stomatal
 from phytorch import photosynthesis as fvcb
 import torch
 
@@ -331,77 +329,6 @@ def plotFvCBModelFit(species,variety,parameterPath,compiledDataPath):
     plt.savefig("results/figures/"+species+variety+"_FvCB_Plot_R2.png")
     
 
-def saveBMFParametersToFile(species,var,bmf):
-    savepath = "results/parameters/"+species+var+"_BMF_Parameters.csv"
-    vars = ["species","Em","i0","k","b"]
-    vals = [species,bmf.Em[0].item(),bmf.i0[0].item(),bmf.k[0].item(),bmf.b[0].item()]
-    outdf = pd.DataFrame([vals],columns=vars)
-    outdf.to_csv(savepath,index=False)
-    print(f"Parameters saved to: {savepath}")
-    return savepath
-
-def plotBMFModelFit(species,variety,parameterPath,dataPath):
-    data = pd.read_csv(dataPath,skiprows=[0,2])
-    gsw_meas = data["gsw"]
-    Q_meas = data["Qamb"]*0.85
-    D_meas = data["VPDleaf"]*1000/101.3
-
-    Q = np.linspace(0,2000,50)    
-    D = np.linspace(1, 50, 50)   
-    Q,D = np.meshgrid(Q, D)
-
-    fig = plt.figure(figsize=[20,9])
-    ax1 = fig.add_subplot(1, 2, 1, projection='3d')
-
-    P = pd.read_csv(parameterPath)
-
-    x = np.column_stack((Q.ravel(), D.ravel()))
-    p = P.iloc[0].to_dict()
-    gsw_modeled = evaluateBMF(x, p)
-    gsw_modeled = gsw_modeled.reshape(Q.shape)
-
-    
-
-    ax1.plot_surface(Q, D, gsw_modeled, cmap='YlGn', edgecolor='none', alpha=0.5, label="BMF Fit")
-    ax1.set_xlabel(r"$Q$ ($\mu$mol m$^{-2}$ s$^{-1}$)", fontsize=13)
-    ax1.set_ylabel(r"$D$ (mmol mol$^{-1}$)", fontsize=13)
-    ax1.set_zlabel(r"g$_{sw}$ (mol m$^{-2}$ s$^{-1}$)", fontsize=13)
-    ax1.view_init(elev=20, azim=-25)
-
-    ax1.scatter(Q_meas, D_meas, gsw_meas, c='r', s=30, label="Measured gsw")
-    ax1.set_xticks([0,1000,2000])
-    plt.savefig("results/figures/"+species+variety+"_BMF_Plot_Surface.png")
-    plt.show()
-
-    # Plot 1:1 reference line
-    x = np.column_stack((Q_meas,D_meas))
-    gsw_pred = evaluateBMF(x,p)
-
-    fig, ax = plt.subplots(figsize=(6, 6))
-    r2 = computeR2(gsw_meas, gsw_pred)
-    rmse = computeRMSE(gsw_meas,gsw_pred)
-    stats_text = f"$R^2 = {r2:.3f}$\nRMSE = {rmse:.2f}"
-    ax.text(0.05, 0.90, stats_text, transform=ax.transAxes, fontsize=12, verticalalignment='top')
-
-    err = np.abs(gsw_meas - gsw_pred) / gsw_meas
-    ax.scatter(gsw_meas, gsw_pred, c="Green", label="Data",s=20)
-    min_val = min(gsw_meas.min(), gsw_pred.min())
-    max_val = max(gsw_meas.max(), gsw_pred.max())
-    ax.plot([min_val, max_val], [min_val, max_val], "r--", label="1:1 Line")
-
-    ax.set_xlabel(r"Measured g$_{sw}$ (mol m$^{-2}$ s$^{-1}$)", fontsize=13)
-    ax.set_ylabel(r"Modeled g$_{sw}$ (mol m$^{-2}$ s$^{-1}$)", fontsize=13)
-    ax.legend()
-    ax.grid(True)
-        
-    if(variety==""):
-        plt.suptitle(f"{species}", fontsize=15)
-    else:
-        plt.suptitle(f"{species} var. {variety}", fontsize=15)
-        
-    plt.savefig("results/figures/"+species+variety+"_BMF_Plot_R2.png")
-    plt.show()
-
 def convert_params_to_buffers(dlmodel):
     # Loop through all modules and collect parameters to be modified
     for module in dlmodel.modules():
@@ -489,37 +416,4 @@ def selftest():
     except:
         raise ValueError('Error in running the FvCB test: Reset parameters and record weights.')
 
-    stomatallabels = ['BMF','BWB','MED']
-    for stomataltype in stomatallabels:
-        try:
-            datasc = pd.read_csv('phytorch/data/tests/steadystate_stomatalconductance.csv')
-            scd = stomatal.initscdata(datasc, printout=False)
-        except:
-            raise ValueError('Error in running the stomatal conductance test: Initialization of stomatal data failed.')
-        if stomataltype == 'BMF':
-            try:
-                print('Stomatal conductance testing case: "BMF"')
-                scm = stomatal.BMF(scd)
-                resultfit = stomatal.fit(scm, learnrate=0.5, maxiteration=20, printout=False)
-                resultfit.model()
-            except:
-                raise ValueError('Error in running the stomatal conductance test: "BMF"')
-        elif stomataltype == 'BWB':
-            try:
-                print('Stomatal conductance testing case: "BWB"')
-                scm = stomatal.BWB(scd)
-                resultfit = stomatal.fit(scm, learnrate=0.5, maxiteration=20, printout=False)
-                resultfit.model()
-            except:
-                raise ValueError('Error in running the stomatal conductance test: "BWB"')
-        elif stomataltype == 'MED':
-            try:
-                print('Stomatal conductance testing case: "MED"')
-                scm = stomatal.MED(scd)
-                resultfit = stomatal.fit(scm, learnrate=0.5, maxiteration=20, printout=False)
-                resultfit.model()
-            except:
-                raise ValueError('Error in running the stomatal conductance test: "MED"')
-
     print('All FvCB tests passed!')
-    print('All stomatal conductance tests passed!')
