@@ -2,8 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from phytorch.photosynthesis.evaluate import evaluateFvCB
-from phytorch import photosynthesis as fvcb
+from phytorch.photosynthesis_legacy.evaluate import evaluateFvCB
+from phytorch import photosynthesis_legacy as fvcb
 import torch
 
 def computeR2(obs, pred):

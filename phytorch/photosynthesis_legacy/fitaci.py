@@ -1,7 +1,7 @@
 # PhoTorch
 # A/Ci curve optimizer
 import torch
-import phytorch.photosynthesis.fvcbmodels as initM
+import phytorch.photosynthesis_legacy.fvcbmodels as initM
 import time
 from torch.cuda.amp import autocast, GradScaler
 
