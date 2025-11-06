@@ -109,8 +109,12 @@ PhyTorch supports two temperature response types:
 #### Type 1: Arrhenius Function
 
 ```python
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
 # Simple Arrhenius temperature response
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=1)
+model = FvCB(light_response=2, temp_response=1)
+result = fit(model, data)
 ```
 
 The Arrhenius function:
@@ -130,8 +134,12 @@ $$
 #### Type 2: Peaked Arrhenius Function
 
 ```python
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
 # Peaked Arrhenius (includes high-temperature deactivation)
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+model = FvCB(light_response=2, temp_response=2)
+result = fit(model, data)
 ```
 
 The peaked Arrhenius function:
@@ -163,7 +171,11 @@ PhyTorch supports three light response types for electron transport rate ($J$):
 #### Type 0: No Light Dependence
 
 ```python
-fvcbm = fvcb.model(lcd, LightResp_type=0, TempResp_type=2)
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
+model = FvCB(light_response=0, temp_response=2)
+result = fit(model, data)
 ```
 
 $$
@@ -175,7 +187,11 @@ No additional parameters are fitted. Electron transport is simply equal to $J_{{
 #### Type 1: Rectangular Hyperbola
 
 ```python
-fvcbm = fvcb.model(lcd, LightResp_type=1, TempResp_type=2)
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
+model = FvCB(light_response=1, temp_response=2)
+result = fit(model, data)
 ```
 
 $$
@@ -191,7 +207,11 @@ $$
 #### Type 2: Non-Rectangular Hyperbola
 
 ```python
-fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
+model = FvCB(light_response=2, temp_response=2)
+result = fit(model, data)
 ```
 
 $$
@@ -239,17 +259,17 @@ result.plot()
 ### Custom Parameter Constraints
 
 ```python
-from phytorch import fit, FitOptions
+from phytorch import fit
 from phytorch.models.photosynthesis import FvCB
 
 # Define custom parameter bounds
-options = FitOptions(
-    bounds={
+options = {
+    'bounds': {
         'Vcmax25': (20, 200),
         'Jmax25': (40, 400),
         'Rd25': (0, 5)
     }
-)
+}
 
 result = fit(FvCB(), data, options)
 ```
@@ -257,19 +277,48 @@ result = fit(FvCB(), data, options)
 ### Custom Initial Guesses
 
 ```python
-from phytorch import fit, FitOptions
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
 
 # Provide initial parameter estimates
-options = FitOptions(
-    initial_guess={
+options = {
+    'initial_guess': {
         'Vcmax25': 100,
         'Jmax25': 180,
         'Rd25': 1.5
     }
-)
+}
 
 result = fit(FvCB(), data, options)
 ```
+
+### Model Configuration Options
+
+The FvCB model constructor accepts several configuration parameters:
+
+```python
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
+
+model = FvCB(
+    light_response=2,      # Light response type: 0, 1, or 2
+    temp_response=2,       # Temperature response type: 1 or 2
+    fit_gm=True,          # Fit mesophyll conductance (default: False)
+    fit_gamma=False,       # Fit CO2 compensation point (default: False)
+    fit_Kc=False,          # Fit Michaelis constant for CO2 (default: False)
+    fit_Ko=False,          # Fit Michaelis constant for O2 (default: False)
+    fit_Rd=True,           # Fit day respiration (default: True)
+    preprocess=True,       # Preprocess data (default: True)
+    verbose=True           # Print fitting progress (default: True)
+)
+
+result = fit(model, data)
+```
+
+**Key configuration options:**
+- `fit_gm=True`: Enables fitting of mesophyll conductance, accounting for CO2 diffusion from intercellular spaces to chloroplast
+- `light_response`: Controls the light response model (0=none, 1=rectangular hyperbola, 2=non-rectangular hyperbola)
+- `temp_response`: Controls temperature response (1=Arrhenius, 2=peaked Arrhenius with deactivation)
 
 ### Making Predictions
 
