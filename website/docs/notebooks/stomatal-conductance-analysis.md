@@ -15,7 +15,8 @@ This notebook demonstrates fitting stomatal conductance models to understand pla
 ## Load and Prepare Data
 
 ```python
-from phytorch import *
+from phytorch import fit
+from phytorch.models.stomatal import MED2011, BWB1987, BMF2003
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,67 +25,59 @@ from scipy import stats
 # Load stomatal conductance data
 df = pd.read_csv('data/stomatal_measurements.csv')
 
-# Initialize LI-COR data object
-lcd = stomatal.initLicordata(df, preprocess=True)
+# Prepare data dictionary
+data = {
+    'A': df['Photo'].values,
+    'VPD': df['VPD'].values,
+    'Ca': df['Ca'].values,
+    'gs': df['Cond'].values
+}
 
 print(f"Loaded {len(df)} measurements")
-print(f"VPD range: {lcd.VPD.min():.2f} - {lcd.VPD.max():.2f} kPa")
-print(f"gs range: {lcd.Cond.min():.3f} - {lcd.Cond.max():.3f} mol/m²/s")
+print(f"VPD range: {data['VPD'].min():.2f} - {data['VPD'].max():.2f} kPa")
+print(f"gs range: {data['gs'].min():.3f} - {data['gs'].max():.3f} mol/m²/s")
 ```
 
 ## Fit Multiple Stomatal Conductance Models
 
 ```python
 # Define models to compare
-model_types = ['MED', 'BWB', 'BMF']
-model_names = {
-    'MED': 'Medlyn (USO)',
-    'BWB': 'Ball-Woodrow-Berry',
-    'BMF': 'Buckley-Mott-Farquhar'
+models = {
+    'MED': (MED2011(), 'Medlyn (USO)'),
+    'BWB': (BWB1987(), 'Ball-Woodrow-Berry'),
+    'BMF': (BMF2003(), 'Buckley-Mott-Farquhar')
 }
 
 results = {}
 
 # Fit each model
-for model_type in model_types:
-    print(f"\nFitting {model_names[model_type]} model...")
+for model_key, (model, model_name) in models.items():
+    print(f"\nFitting {model_name} model...")
 
-    # Initialize model
-    model = stomatal.model(lcd, model_type=model_type)
-
-    # Fit model
-    fitresult = stomatal.fit(model, learn_rate=0.01, maxiteration=10000)
-
-    # Get predictions
-    predicted = model.predict(lcd)
-
-    # Calculate R²
-    ss_res = np.sum((lcd.Cond - predicted)**2)
-    ss_tot = np.sum((lcd.Cond - np.mean(lcd.Cond))**2)
-    r_squared = 1 - (ss_res / ss_tot)
+    # Fit model using scipy optimizer
+    result = fit(model, data)
 
     # Calculate RMSE
-    rmse = np.sqrt(np.mean((lcd.Cond - predicted)**2))
+    rmse = np.sqrt(np.mean(result.residuals**2))
 
     # Store results
-    results[model_type] = {
+    results[model_key] = {
         'model': model,
-        'fit': fitresult,
-        'predicted': predicted,
-        'r2': r_squared,
+        'result': result,
+        'r2': result.r_squared,
         'rmse': rmse
     }
 
-    print(f"  R² = {r_squared:.3f}")
+    print(f"  R² = {result.r_squared:.3f}")
     print(f"  RMSE = {rmse:.4f} mol/m²/s")
 
     # Print fitted parameters
-    if model_type == 'MED':
-        print(f"  g0 = {fitresult.params['g0']:.4f} mol/m²/s")
-        print(f"  g1 = {fitresult.params['g1']:.2f}")
-    elif model_type == 'BWB':
-        print(f"  g0 = {fitresult.params['g0']:.4f} mol/m²/s")
-        print(f"  g1 = {fitresult.params['g1']:.2f}")
+    if model_key == 'MED':
+        print(f"  g0 = {result.parameters['g0']:.4f} mol/m²/s")
+        print(f"  g1 = {result.parameters['g1']:.2f}")
+    elif model_key == 'BWB':
+        print(f"  g0 = {result.parameters['g0']:.4f} mol/m²/s")
+        print(f"  g1 = {result.parameters['g1']:.2f}")
 ```
 
 ## Visualize Model Performance
@@ -92,13 +85,13 @@ for model_type in model_types:
 ```python
 fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-for idx, model_type in enumerate(model_types):
+for idx, (model_key, (_, model_name)) in enumerate(models.items()):
     ax = axes[idx]
 
-    observed = lcd.Cond
-    predicted = results[model_type]['predicted']
-    r2 = results[model_type]['r2']
-    rmse = results[model_type]['rmse']
+    observed = data['gs']
+    predicted = results[model_key]['result'].predictions
+    r2 = results[model_key]['r2']
+    rmse = results[model_key]['rmse']
 
     # 1:1 plot
     ax.scatter(observed, predicted, alpha=0.5, s=40)
@@ -110,7 +103,7 @@ for idx, model_type in enumerate(model_types):
 
     ax.set_xlabel('Observed gs (mol/m²/s)', fontsize=11)
     ax.set_ylabel('Predicted gs (mol/m²/s)', fontsize=11)
-    ax.set_title(f"{model_names[model_type]}\nR² = {r2:.3f}, RMSE = {rmse:.4f}",
+    ax.set_title(f"{model_name}\nR² = {r2:.3f}, RMSE = {rmse:.4f}",
                  fontsize=11, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
@@ -125,32 +118,32 @@ plt.show()
 ```python
 # Analyze gs response to VPD using the best model (e.g., Medlyn)
 best_model = 'MED'
-predicted = results[best_model]['predicted']
+predicted = results[best_model]['result'].predictions
 
 # Bin data by VPD
-vpd_bins = np.linspace(lcd.VPD.min(), lcd.VPD.max(), 10)
+vpd_bins = np.linspace(data['VPD'].min(), data['VPD'].max(), 10)
 vpd_centers = (vpd_bins[:-1] + vpd_bins[1:]) / 2
 
 gs_mean = []
 gs_std = []
 
 for i in range(len(vpd_bins)-1):
-    mask = (lcd.VPD >= vpd_bins[i]) & (lcd.VPD < vpd_bins[i+1])
-    gs_mean.append(lcd.Cond[mask].mean())
-    gs_std.append(lcd.Cond[mask].std())
+    mask = (data['VPD'] >= vpd_bins[i]) & (data['VPD'] < vpd_bins[i+1])
+    gs_mean.append(data['gs'][mask].mean())
+    gs_std.append(data['gs'][mask].std())
 
 # Plot gs vs VPD
 fig, ax = plt.subplots(figsize=(10, 6))
 
 # Scatter plot of all data
-ax.scatter(lcd.VPD, lcd.Cond, alpha=0.3, s=30, label='Observed', color='blue')
+ax.scatter(data['VPD'], data['gs'], alpha=0.3, s=30, label='Observed', color='blue')
 
 # Binned means with error bars
 ax.errorbar(vpd_centers, gs_mean, yerr=gs_std, fmt='o-', linewidth=2,
             markersize=8, capsize=5, label='Binned mean ± SD', color='red')
 
 # Model prediction across VPD range
-vpd_range = np.linspace(lcd.VPD.min(), lcd.VPD.max(), 100)
+vpd_range = np.linspace(data['VPD'].min(), data['VPD'].max(), 100)
 # Note: This would require generating predictions at different VPD values
 # with constant A and other conditions
 
@@ -171,18 +164,18 @@ plt.show()
 # iWUE = A/gs
 # Higher iWUE indicates more carbon gained per unit water lost
 
-lcd['iWUE'] = lcd.Photo / lcd.Cond  # μmol CO2 / mol H2O
+df['iWUE'] = df['Photo'] / df['Cond']  # μmol CO2 / mol H2O
 
 # Plot iWUE vs VPD
 fig, ax = plt.subplots(figsize=(10, 6))
 
-ax.scatter(lcd.VPD, lcd.iWUE, alpha=0.5, s=50)
+ax.scatter(df['VPD'], df['iWUE'], alpha=0.5, s=50)
 
 # Fit linear regression
-slope, intercept, r_value, p_value, std_err = stats.linregress(lcd.VPD, lcd.iWUE)
+slope, intercept, r_value, p_value, std_err = stats.linregress(df['VPD'], df['iWUE'])
 
 # Plot regression line
-vpd_range = np.linspace(lcd.VPD.min(), lcd.VPD.max(), 100)
+vpd_range = np.linspace(df['VPD'].min(), df['VPD'].max(), 100)
 ax.plot(vpd_range, slope * vpd_range + intercept, 'r-', linewidth=2,
         label=f'Linear fit: R² = {r_value**2:.3f}, p = {p_value:.4f}')
 
@@ -197,7 +190,7 @@ plt.savefig('iwue_vpd.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 print(f"\niWUE Statistics:")
-print(f"  Mean iWUE: {lcd.iWUE.mean():.2f} ± {lcd.iWUE.std():.2f}")
+print(f"  Mean iWUE: {df['iWUE'].mean():.2f} ± {df['iWUE'].std():.2f}")
 print(f"  Slope with VPD: {slope:.2f} (p = {p_value:.4f})")
 ```
 
@@ -224,8 +217,8 @@ print(f"  Slope with VPD: {slope:.2f} (p = {p_value:.4f})")
 
 ```python
 # Extract g1 from Medlyn model
-g1 = results['MED']['fit'].params['g1']
-g0 = results['MED']['fit'].params['g0']
+g1 = results['MED']['result'].parameters['g1']
+g0 = results['MED']['result'].parameters['g0']
 
 print(f"\nMedlyn Model Parameters:")
 print(f"  g0 (residual conductance): {g0:.4f} mol/m²/s")
@@ -248,16 +241,20 @@ print(f"  Interpretation: {interpretation}")
 # Calculate stomatal limitation
 # l_s = (Ca - Ci) / Ca
 
-lcd['stomatal_limitation'] = (lcd.CO2R - lcd.Ci) / lcd.CO2R
+# Note: Ci would need to be in the dataset - assuming it's available
+if 'Ci' in df.columns:
+    df['stomatal_limitation'] = (df['Ca'] - df['Ci']) / df['Ca']
 
-print(f"\nStomatal Limitation:")
-print(f"  Mean: {lcd.stomatal_limitation.mean():.3f}")
-print(f"  Range: {lcd.stomatal_limitation.min():.3f} - {lcd.stomatal_limitation.max():.3f}")
+    print(f"\nStomatal Limitation:")
+    print(f"  Mean: {df['stomatal_limitation'].mean():.3f}")
+    print(f"  Range: {df['stomatal_limitation'].min():.3f} - {df['stomatal_limitation'].max():.3f}")
 
-# Higher values indicate greater stomatal limitation
-if lcd.stomatal_limitation.mean() > 0.3:
-    print("  ⚠ Substantial stomatal limitation detected")
-    print("    Consider if water stress is present")
+    # Higher values indicate greater stomatal limitation
+    if df['stomatal_limitation'].mean() > 0.3:
+        print("  ⚠ Substantial stomatal limitation detected")
+        print("    Consider if water stress is present")
+else:
+    print("\nNote: Ci data not available in dataset for stomatal limitation calculation")
 ```
 
 ## Model Comparison Table
@@ -265,9 +262,9 @@ if lcd.stomatal_limitation.mean() > 0.3:
 ```python
 # Create summary table
 summary = pd.DataFrame({
-    'Model': [model_names[m] for m in model_types],
-    'R²': [results[m]['r2'] for m in model_types],
-    'RMSE': [results[m]['rmse'] for m in model_types]
+    'Model': [model_name for _, model_name in models.values()],
+    'R²': [results[m]['r2'] for m in results.keys()],
+    'RMSE': [results[m]['rmse'] for m in results.keys()]
 })
 
 print("\nModel Performance Summary:")

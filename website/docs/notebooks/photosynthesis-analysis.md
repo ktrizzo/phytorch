@@ -15,7 +15,8 @@ This notebook demonstrates fitting FvCB photosynthesis models to A-Ci response c
 ## Load and Prepare Data
 
 ```python
-from phytorch import *
+from phytorch import fit
+from phytorch.models.photosynthesis import FvCB
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,8 +27,16 @@ results = {}
 
 for geno in genotypes:
     df = pd.read_csv(f'data/{geno}_aci.csv')
-    lcd = fvcb.initLicordata(df, preprocess=True)
-    results[geno] = {'data': lcd}
+
+    # Prepare data dictionary
+    data = {
+        'Tleaf': df['Tleaf'].values,
+        'Ci': df['Ci'].values,
+        'PPFD': df['PPFD'].values,
+        'Photo': df['Photo'].values
+    }
+
+    results[geno] = {'data': data}
 ```
 
 ## Fit FvCB Models
@@ -35,26 +44,26 @@ for geno in genotypes:
 ```python
 # Fit models for each genotype
 for geno in genotypes:
-    lcd = results[geno]['data']
+    data = results[geno]['data']
 
-    # Initialize FvCB model with peaked Arrhenius temperature response
-    fvcbm = fvcb.model(lcd, LightResp_type=2, TempResp_type=2)
+    # Initialize FvCB model
+    model = FvCB()
 
-    # Fit model
-    fitresult = fvcb.fit(fvcbm, learn_rate=0.08, maxiteration=20000)
+    # Fit model with PyTorch optimizer
+    options = {'learn_rate': 0.08, 'max_iterations': 20000, 'verbose': True}
+    result = fit(model, data, options)
 
     # Store results
-    results[geno]['model'] = fvcbm
-    results[geno]['fit'] = fitresult
-    results[geno]['predicted'] = fvcbm.predict(lcd)
+    results[geno]['model'] = model
+    results[geno]['result'] = result
 
     # Print fitted parameters
     print(f"\n{geno} Fitted Parameters:")
-    print(f"  Vcmax25: {fitresult.params['Vcmax25']:.2f} μmol/m²/s")
-    print(f"  Jmax25: {fitresult.params['Jmax25']:.2f} μmol/m²/s")
-    print(f"  Rd25: {fitresult.params['Rd25']:.2f} μmol/m²/s")
-    print(f"  Tp25: {fitresult.params['Tp25']:.2f} μmol/m²/s")
-    print(f"  Jmax/Vcmax: {fitresult.params['Jmax25']/fitresult.params['Vcmax25']:.2f}")
+    print(f"  Vcmax25: {result.parameters['Vcmax25']:.2f} μmol/m²/s")
+    print(f"  Jmax25: {result.parameters['Jmax25']:.2f} μmol/m²/s")
+    print(f"  Rd25: {result.parameters['Rd25']:.2f} μmol/m²/s")
+    print(f"  TPU25: {result.parameters['TPU25']:.2f} μmol/m²/s")
+    print(f"  Jmax/Vcmax: {result.parameters['Jmax25']/result.parameters['Vcmax25']:.2f}")
 ```
 
 ## Visualize A-Ci Curves
@@ -63,12 +72,12 @@ for geno in genotypes:
 fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
 for idx, geno in enumerate(genotypes):
-    lcd = results[geno]['data']
-    predicted = results[geno]['predicted']
+    data = results[geno]['data']
+    result = results[geno]['result']
 
     ax = axes[idx]
-    ax.scatter(lcd.Ci, lcd.Photo, alpha=0.6, s=80, label='Observed')
-    ax.plot(lcd.Ci, predicted, 'r-', linewidth=2, label='Fitted FvCB')
+    ax.scatter(data['Ci'], data['Photo'], alpha=0.6, s=80, label='Observed')
+    ax.plot(data['Ci'], result.predictions, 'r-', linewidth=2, label='Fitted FvCB')
     ax.set_xlabel('Ci (μmol/mol)', fontsize=12)
     ax.set_ylabel('A (μmol/m²/s)', fontsize=12)
     ax.set_title(geno, fontsize=14, fontweight='bold')
@@ -86,10 +95,10 @@ plt.show()
 # Extract key parameters for comparison
 params_df = pd.DataFrame({
     'Genotype': genotypes,
-    'Vcmax25': [results[g]['fit'].params['Vcmax25'] for g in genotypes],
-    'Jmax25': [results[g]['fit'].params['Jmax25'] for g in genotypes],
-    'Rd25': [results[g]['fit'].params['Rd25'] for g in genotypes],
-    'Tp25': [results[g]['fit'].params['Tp25'] for g in genotypes]
+    'Vcmax25': [results[g]['result'].parameters['Vcmax25'] for g in genotypes],
+    'Jmax25': [results[g]['result'].parameters['Jmax25'] for g in genotypes],
+    'Rd25': [results[g]['result'].parameters['Rd25'] for g in genotypes],
+    'TPU25': [results[g]['result'].parameters['TPU25'] for g in genotypes]
 })
 
 # Calculate Jmax/Vcmax ratio
@@ -141,12 +150,12 @@ print(params_df.to_string(index=False))
 from scipy import stats
 
 # Perform ANOVA to test for significant differences
-vcmax_values = [results[g]['fit'].params['Vcmax25'] for g in genotypes]
-jmax_values = [results[g]['fit'].params['Jmax25'] for g in genotypes]
+vcmax_values = [results[g]['result'].parameters['Vcmax25'] for g in genotypes]
+jmax_values = [results[g]['result'].parameters['Jmax25'] for g in genotypes]
 
 # One-way ANOVA
 f_stat_vcmax, p_value_vcmax = stats.f_oneway(*[
-    [results[g]['fit'].params['Vcmax25']] for g in genotypes
+    [results[g]['result'].parameters['Vcmax25']] for g in genotypes
 ])
 
 print(f"\nVcmax ANOVA: F = {f_stat_vcmax:.3f}, p = {p_value_vcmax:.4f}")
