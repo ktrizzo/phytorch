@@ -3,6 +3,7 @@
 from typing import Dict, Optional, Tuple, List
 import numpy as np
 from scipy.optimize import curve_fit
+from datetime import datetime
 
 from phytorch.core.result import FitResult
 
@@ -148,5 +149,7 @@ def fit_with_scipy(
         converged=converged,
         iterations=-1,  # scipy doesn't report iterations
         optimizer_info=optimizer_info,
-        covariance=pcov
+        covariance=pcov,
+        fit_options=options or {},
+        fit_time=datetime.now()
     )

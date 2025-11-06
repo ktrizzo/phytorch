@@ -1,11 +1,13 @@
 """Result class for model fitting."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from datetime import datetime
+import os
 
 
 @dataclass
@@ -24,6 +26,8 @@ class FitResult:
         iterations: Number of iterations used
         optimizer_info: Additional optimizer-specific information
         covariance: Parameter covariance matrix (if available, from scipy)
+        fit_options: Options used for fitting
+        fit_time: Timestamp when fit was performed
     """
     model: object  # phytorch.models.base.Model
     parameters: Dict[str, float]
@@ -36,6 +40,8 @@ class FitResult:
     iterations: int
     optimizer_info: Dict
     covariance: Optional[np.ndarray]
+    fit_options: Dict = field(default_factory=dict)
+    fit_time: Optional[datetime] = None
 
     def predict(self, data: Union[Dict, pd.DataFrame]) -> np.ndarray:
         """Make predictions with fitted model on new data.
@@ -475,3 +481,146 @@ class FitResult:
             plt.show()
         else:
             plt.close()
+
+    def write(self, filepath: Optional[str] = None):
+        """Write fit results and data to CSV files.
+
+        Creates two files:
+        1. Data file: Contains the original input data used for fitting
+        2. Results file: Contains fitted parameters, error metrics, and metadata
+
+        The results file references the data file, creating a complete record
+        of the fit that can be reloaded or shared.
+
+        Args:
+            filepath: Path for the results CSV file (e.g., 'results.csv')
+                     If None, auto-generates: '{ModelName}_{datetime}_results.csv'
+                     The data file will be created as '{basename}_data.csv'
+
+        Example:
+            >>> result = fit(model, data)
+            >>> result.write()  # Auto-generates filename
+            # Creates: MED2011_20250205_143022_results.csv and MED2011_20250205_143022_results_data.csv
+
+            >>> result.write('my_fit_results.csv')  # Custom filename
+            # Creates: my_fit_results.csv and my_fit_results_data.csv
+        """
+        # Generate default filepath if not provided
+        if filepath is None:
+            model_name = self.model.__class__.__name__
+            if self.fit_time:
+                datetime_str = self.fit_time.strftime('%Y%m%d_%H%M%S')
+            else:
+                datetime_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filepath = f"{model_name}_{datetime_str}_results.csv"
+
+        # Parse filepath
+        directory = os.path.dirname(filepath) or '.'
+        basename = os.path.basename(filepath)
+        name, ext = os.path.splitext(basename)
+        if not ext:
+            ext = '.csv'
+            basename = name + ext
+
+        # Create data filename
+        data_filename = f"{name}_data{ext}"
+        data_filepath = os.path.join(directory, data_filename)
+
+        # Write data file
+        data_df = pd.DataFrame(self.data)
+        data_df['predictions'] = self.predictions
+        data_df['residuals'] = self.residuals
+        data_df.to_csv(data_filepath, index=False)
+
+        # Prepare results data
+        results_data = []
+
+        # Add metadata
+        results_data.append({'Category': 'Metadata', 'Parameter': 'Model', 'Value': self.model.__class__.__name__, 'Units': '', 'Notes': ''})
+        results_data.append({'Category': 'Metadata', 'Parameter': 'Data File', 'Value': data_filename, 'Units': '', 'Notes': ''})
+
+        if self.fit_time:
+            time_str = self.fit_time.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        results_data.append({'Category': 'Metadata', 'Parameter': 'Fit Date/Time', 'Value': time_str, 'Units': '', 'Notes': ''})
+
+        # Add fitted parameters
+        param_info = self.model.parameter_info()
+        for param_name, param_value in self.parameters.items():
+            info = param_info.get(param_name, {})
+            units = info.get('units', '')
+            description = info.get('description', '')
+            symbol = info.get('symbol', param_name)
+            results_data.append({
+                'Category': 'Fitted Parameters',
+                'Parameter': param_name,
+                'Value': param_value,
+                'Units': units,
+                'Notes': f'{symbol}: {description}' if description else symbol
+            })
+
+        # Add parameter uncertainties if available
+        uncertainties = self.parameter_uncertainties()
+        if uncertainties:
+            for param_name, std_error in uncertainties.items():
+                results_data.append({
+                    'Category': 'Parameter Uncertainties',
+                    'Parameter': f'{param_name}_SE',
+                    'Value': std_error,
+                    'Units': param_info.get(param_name, {}).get('units', ''),
+                    'Notes': f'Standard error for {param_name}'
+                })
+
+        # Add error metrics
+        results_data.append({'Category': 'Error Metrics', 'Parameter': 'Loss (RSS)', 'Value': self.loss, 'Units': '', 'Notes': 'Residual sum of squares'})
+        if self.r_squared is not None:
+            results_data.append({'Category': 'Error Metrics', 'Parameter': 'R²', 'Value': self.r_squared, 'Units': '', 'Notes': 'Coefficient of determination'})
+        results_data.append({'Category': 'Error Metrics', 'Parameter': 'RMSE', 'Value': np.sqrt(self.loss / len(self.residuals)), 'Units': '', 'Notes': 'Root mean squared error'})
+
+        # Add convergence info
+        results_data.append({'Category': 'Convergence', 'Parameter': 'Converged', 'Value': str(self.converged), 'Units': '', 'Notes': ''})
+        results_data.append({'Category': 'Convergence', 'Parameter': 'Iterations', 'Value': self.iterations, 'Units': '', 'Notes': ''})
+
+        # Add fit options
+        if self.fit_options:
+            for option_name, option_value in self.fit_options.items():
+                # Skip complex objects
+                if isinstance(option_value, (str, int, float, bool, type(None))):
+                    results_data.append({
+                        'Category': 'Fit Options',
+                        'Parameter': option_name,
+                        'Value': str(option_value),
+                        'Units': '',
+                        'Notes': ''
+                    })
+                elif isinstance(option_value, dict):
+                    # Flatten dict options
+                    for sub_key, sub_value in option_value.items():
+                        if isinstance(sub_value, (str, int, float, bool, type(None))):
+                            results_data.append({
+                                'Category': 'Fit Options',
+                                'Parameter': f'{option_name}.{sub_key}',
+                                'Value': str(sub_value),
+                                'Units': '',
+                                'Notes': ''
+                            })
+
+        # Add optimizer info
+        if self.optimizer_info:
+            for info_name, info_value in self.optimizer_info.items():
+                if isinstance(info_value, (str, int, float, bool, type(None))):
+                    results_data.append({
+                        'Category': 'Optimizer Info',
+                        'Parameter': info_name,
+                        'Value': str(info_value),
+                        'Units': '',
+                        'Notes': ''
+                    })
+
+        # Write results file
+        results_df = pd.DataFrame(results_data)
+        results_df.to_csv(filepath, index=False)
+
+        print(f"Results written to: {filepath}")
+        print(f"Data written to: {data_filepath}")

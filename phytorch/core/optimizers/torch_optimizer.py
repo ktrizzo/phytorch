@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 import time
+from datetime import datetime
 
 from phytorch.core.result import FitResult
 
@@ -184,5 +185,7 @@ def fit_with_torch(
         converged=True,  # Assume converged if we finished
         iterations=best_iter,
         optimizer_info=optimizer_info,
-        covariance=None  # Not available for gradient descent
+        covariance=None,  # Not available for gradient descent
+        fit_options=options or {},
+        fit_time=datetime.now()
     )
