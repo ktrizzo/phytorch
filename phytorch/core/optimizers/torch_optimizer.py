@@ -146,9 +146,13 @@ def fit_with_torch(
             predictions = predictions.cpu().numpy()
 
     # Extract parameters from model
-    parameters = {}
-    for name, param in model.named_parameters():
-        parameters[name] = param.detach().cpu().item() if param.numel() == 1 else param.detach().cpu().numpy()
+    # Use get_all_parameters() if available (includes fitted + defaults)
+    if hasattr(model, 'get_all_parameters'):
+        parameters = model.get_all_parameters()
+    else:
+        parameters = {}
+        for name, param in model.named_parameters():
+            parameters[name] = param.detach().cpu().item() if param.numel() == 1 else param.detach().cpu().numpy()
 
     # Get observed data
     # For models with custom data structures (like FvCB), use get_observed_data()

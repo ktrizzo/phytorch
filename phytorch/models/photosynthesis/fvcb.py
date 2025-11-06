@@ -363,6 +363,97 @@ class FvCB(Model, nn.Module):
             raise ValueError("Model not initialized with data yet")
         return self.lcd.A.cpu().numpy()
 
+    def get_all_parameters(self) -> Dict:
+        """
+        Return all model parameters, including both fitted and default values.
+
+        This extracts:
+        - Fitted parameters from nn.Parameter objects
+        - Default values for parameters that weren't fitted
+        - Parameters from nested modules (LightResponse, TempResponse)
+
+        Returns:
+            Dictionary of all parameter names and values
+        """
+        if self.core_model is None:
+            raise ValueError("Model not initialized. Call fit() first.")
+
+        all_params = {}
+
+        # Extract all nn.Parameters from the model
+        for name, param in self.core_model.named_parameters():
+            if param.numel() > 1:
+                # Take mean for array parameters (across curves)
+                all_params[name] = param.detach().cpu().mean().item()
+            else:
+                all_params[name] = param.detach().cpu().item()
+
+        # Add default values for non-fitted parameters from allparameters
+        from .fvcb_core_legacy import allparameters
+        ap = allparameters()
+
+        # Check and add light response parameters
+        if not hasattr(self.core_model.LightResponse, 'alpha'):
+            all_params['LightResponse.alpha'] = ap.alpha.item()
+        if not hasattr(self.core_model.LightResponse, 'theta'):
+            all_params['LightResponse.theta'] = ap.theta.item()
+
+        # Check and add temperature response defaults if not fitted
+        if not hasattr(self.core_model.TempResponse, 'dHa_Vcmax'):
+            all_params['TempResponse.dHa_Vcmax'] = ap.dHa_Vcmax.item()
+        if not hasattr(self.core_model.TempResponse, 'dHa_Jmax'):
+            all_params['TempResponse.dHa_Jmax'] = ap.dHa_Jmax.item()
+        if not hasattr(self.core_model.TempResponse, 'dHa_TPU'):
+            all_params['TempResponse.dHa_TPU'] = ap.dHa_TPU.item()
+
+        # Add Topt if using peaked Arrhenius
+        if self.temp_response_type == 2:
+            if not hasattr(self.core_model.TempResponse, 'Topt_Vcmax'):
+                all_params['TempResponse.Topt_Vcmax'] = ap.Topt_Vcmax.item()
+            if not hasattr(self.core_model.TempResponse, 'Topt_Jmax'):
+                all_params['TempResponse.Topt_Jmax'] = ap.Topt_Jmax.item()
+            if not hasattr(self.core_model.TempResponse, 'Topt_TPU'):
+                all_params['TempResponse.Topt_TPU'] = ap.Topt_TPU.item()
+
+        # Check and add biochemical parameters
+        if not self.fit_gm:
+            all_params['gm'] = ap.gm.item()
+
+        if not self.fit_gamma:
+            all_params['Gamma25'] = ap.Gamma25.item()
+        else:
+            # Gamma25 might be fitted but stored differently
+            if 'Gamma25' not in all_params and hasattr(self.core_model, 'Gamma25'):
+                if isinstance(self.core_model.Gamma25, torch.Tensor):
+                    all_params['Gamma25'] = self.core_model.Gamma25.detach().cpu().mean().item()
+
+        if not self.fit_Kc:
+            all_params['Kc25'] = ap.Kc25.item()
+        else:
+            if 'Kc25' not in all_params and hasattr(self.core_model, 'Kc25'):
+                if isinstance(self.core_model.Kc25, torch.Tensor):
+                    all_params['Kc25'] = self.core_model.Kc25.detach().cpu().mean().item()
+
+        if not self.fit_Ko:
+            all_params['Ko25'] = ap.Ko25.item()
+        else:
+            if 'Ko25' not in all_params and hasattr(self.core_model, 'Ko25'):
+                if isinstance(self.core_model.Ko25, torch.Tensor):
+                    all_params['Ko25'] = self.core_model.Ko25.detach().cpu().mean().item()
+
+        # Add alphaG_r if not fitted
+        if hasattr(self.core_model, 'fitag') and not self.core_model.fitag:
+            all_params['alphaG_r'] = ap.alphaG_r.item()
+
+        # Add Rdratio if using it instead of Rd
+        if hasattr(self.core_model, 'fitRdratio') and self.core_model.fitRdratio:
+            if hasattr(self.core_model, '_FvCB__Rdratio'):
+                all_params['Rdratio'] = self.core_model._FvCB__Rdratio.detach().cpu().mean().item()
+        elif not self.fit_Rd:
+            all_params['Rdratio'] = ap.Rdratio_r.item()
+
+        return all_params
+
     def plot(self, data: Optional[Dict] = None, parameters: Optional[Dict] = None,
              show: bool = True, save: str = None):
         """
