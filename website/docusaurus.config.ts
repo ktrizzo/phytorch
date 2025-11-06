@@ -91,6 +91,11 @@ const config: Config = {
           label: 'Tutorials',
         },
         {
+          to: '/docs/notebooks/photosynthesis-analysis',
+          position: 'left',
+          label: 'Community Notebooks',
+        },
+        {
           to: '/docs/api',
           position: 'left',
           label: 'API Reference',
