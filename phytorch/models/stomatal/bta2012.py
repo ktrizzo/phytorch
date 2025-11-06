@@ -5,20 +5,21 @@ from phytorch.models.base import Model
 
 
 class BTA2012(Model):
-    """Buckley, Turnbull & Adams (2012) unified stomatal optimization model.
+    """Buckley, Turnbull & Adams (2012) stomatal conductance model (Model 4).
 
-    Model equation (simplified empirical form):
-        gs = gs0 + g1 * A / (Ca * sqrt(VPD))
+    Model equation:
+        gs = Em(Q + i0) / (k + bQ + (Q + i0)Ds)
 
     where gs is stomatal conductance to water vapor (mol m⁻² s⁻¹),
-    gs0 is minimum conductance, g1 is the marginal water use efficiency parameter,
-    A is net CO₂ assimilation rate (μmol m⁻² s⁻¹),
-    Ca is atmospheric CO₂ concentration (ppm), and
-    VPD is vapor pressure deficit (kPa).
+    Em is maximum leaf transpiration rate (mmol m⁻² s⁻¹),
+    Q is irradiance/PPFD (μmol m⁻² s⁻¹),
+    i0 is dark respiration parameter (μmol m⁻² s⁻¹),
+    k is a lumped parameter (μmol m⁻² s⁻¹ mmol mol⁻¹),
+    b is a lumped parameter (mmol mol⁻¹), and
+    Ds is leaf surface vapor pressure saturation deficit (mmol mol⁻¹).
 
-    This formulation is based on the unified stomatal optimization theory
-    which predicts that stomata operate to maximize carbon gain while
-    minimizing water loss.
+    This is Model 4 from the paper, which groups parameters as:
+    Em = K1(ψsoil + πc), k = K1/χφ, and b = K1/χα0.
 
     Reference:
         Buckley, T.N., Turnbull, T.L., & Adams, M.A. (2012). Simple models
@@ -32,80 +33,104 @@ class BTA2012(Model):
 
         Args:
             data: {
-                'A': net CO₂ assimilation rate (μmol m⁻² s⁻¹),
-                'VPD': vapor pressure deficit (kPa),
-                'Ca': atmospheric CO₂ concentration (ppm, default=400 if not provided)
+                'Q': irradiance/PPFD (μmol m⁻² s⁻¹),
+                'Ds': leaf surface vapor pressure saturation deficit (mmol mol⁻¹)
             }
             parameters: {
-                'gs0': minimum conductance (mol m⁻² s⁻¹),
-                'g1': marginal water use efficiency (√kPa)
+                'Em': maximum leaf transpiration rate (mmol m⁻² s⁻¹),
+                'i0': dark respiration parameter (μmol m⁻² s⁻¹),
+                'k': lumped parameter (μmol m⁻² s⁻¹ mmol mol⁻¹),
+                'b': lumped parameter (mmol mol⁻¹)
             }
 
         Returns:
             Predicted stomatal conductance (mol m⁻² s⁻¹)
         """
-        A = np.asarray(data['A'])
-        VPD = np.asarray(data['VPD'])
-        Ca = data.get('Ca', 400.0)
-        if not isinstance(Ca, (int, float)):
-            Ca = np.asarray(Ca)
+        Q = np.asarray(data['Q'])
+        Ds = np.asarray(data['Ds'])
 
-        gs0 = parameters['gs0']
-        g1 = parameters['g1']
+        Em = parameters['Em']
+        i0 = parameters['i0']
+        k = parameters['k']
+        b = parameters['b']
 
-        # Only use positive A values (stomata close when A < 0)
-        A_pos = np.maximum(A, 0.0)
+        # BTA Model 4: gs = Em(Q + i0) / (k + bQ + (Q + i0)Ds)
+        numerator = Em * (Q + i0)
+        denominator = k + b * Q + (Q + i0) * Ds
 
-        # BTA model (unified stomatal optimization)
         # Avoid division by zero
-        sqrt_VPD = np.sqrt(np.maximum(VPD, 0.01))
+        denominator = np.maximum(denominator, 1e-10)
 
-        gs = gs0 + g1 * A_pos / (Ca * sqrt_VPD)
+        # Convert from mmol to mol for consistency
+        gs = numerator / denominator / 1000.0
 
         return gs
 
     def parameter_info(self) -> dict:
         return {
-            'gs0': {
-                'default': 0.01,
-                'bounds': (0.0, 0.1),
-                'units': 'mol m⁻² s⁻¹',
-                'description': 'Minimum stomatal conductance',
-                'symbol': 'g_{s0}'
+            'Em': {
+                'default': 10.0,
+                'bounds': (0.1, 50.0),
+                'units': 'mmol m⁻² s⁻¹',
+                'description': 'Maximum leaf transpiration rate',
+                'symbol': 'E_m'
             },
-            'g1': {
-                'default': 4.0,
-                'bounds': (0.5, 15.0),
-                'units': '√kPa',
-                'description': 'Marginal water use efficiency',
-                'symbol': 'g_1'
+            'i0': {
+                'default': 50.0,
+                'bounds': (0.0, 300.0),
+                'units': 'μmol m⁻² s⁻¹',
+                'description': 'Dark respiration parameter',
+                'symbol': 'i_0'
+            },
+            'k': {
+                'default': 1e4,
+                'bounds': (0.0, 1e6),
+                'units': 'μmol m⁻² s⁻¹ mmol mol⁻¹',
+                'description': 'Lumped parameter K1/χφ',
+                'symbol': 'k'
+            },
+            'b': {
+                'default': 20.0 / 3.0,
+                'bounds': (0.0, 100.0),
+                'units': 'mmol mol⁻¹',
+                'description': 'Lumped parameter K1/χα0',
+                'symbol': 'b'
             }
         }
 
     def required_data(self) -> list:
-        return ['A', 'VPD', 'gs']
+        return ['Q', 'Ds', 'gs']
 
     def initial_guess(self, data: dict) -> dict:
         """Estimate initial parameters from data."""
         gs = np.asarray(data['gs'])
+        Q = np.asarray(data['Q'])
 
-        # gs0: minimum observed conductance
-        gs0_guess = np.min(gs[gs > 0]) if np.any(gs > 0) else 0.01
-        gs0_guess = min(gs0_guess, 0.05)
+        # Em: related to maximum observed conductance
+        Em_guess = np.max(gs) * 1000.0 * 2.0  # Convert mol to mmol and scale
+        Em_guess = np.clip(Em_guess, 1.0, 50.0)
 
-        # g1: use typical value
-        g1_guess = 4.0
+        # i0: typical value for dark respiration
+        i0_guess = 50.0
+
+        # k: typical lumped parameter value
+        k_guess = 1e4
+
+        # b: typical lumped parameter value
+        b_guess = 20.0 / 3.0
 
         return {
-            'gs0': gs0_guess,
-            'g1': g1_guess
+            'Em': Em_guess,
+            'i0': i0_guess,
+            'k': k_guess,
+            'b': b_guess
         }
 
     def plot(self, data: dict, parameters: dict, show: bool = True, save: str = None):
         """Plot stomatal conductance fit results.
 
         Args:
-            data: Data dictionary with 'A', 'VPD', and 'gs'
+            data: Data dictionary with 'Q', 'Ds', and 'gs'
             parameters: Fitted parameters
             show: Whether to display the plot (default: True)
             save: Filename to save plot (default: None)
@@ -113,8 +138,10 @@ class BTA2012(Model):
         import matplotlib.pyplot as plt
 
         # Extract parameters
-        gs0 = parameters['gs0']
-        g1 = parameters['g1']
+        Em = parameters['Em']
+        i0 = parameters['i0']
+        k = parameters['k']
+        b = parameters['b']
 
         # Create figure with two subplots
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
@@ -145,19 +172,19 @@ class BTA2012(Model):
         ax1.grid(True, alpha=0.3)
         ax1.legend(fontsize=9, loc='lower right')
 
-        # Right plot: gs vs A
-        A = np.asarray(data['A'])
+        # Right plot: gs vs Q (irradiance)
+        Q = np.asarray(data['Q'])
 
-        ax2.scatter(A, observed, s=100, alpha=0.6, color='black',
+        ax2.scatter(Q, observed, s=100, alpha=0.6, color='black',
                    edgecolors='black', linewidth=0.5, label='Observed', zorder=3)
 
         # Plot fitted curve
-        # Sort by A for smooth line
-        sort_idx = np.argsort(A)
-        ax2.plot(A[sort_idx], predicted[sort_idx], 'r-', linewidth=2.5,
+        # Sort by Q for smooth line
+        sort_idx = np.argsort(Q)
+        ax2.plot(Q[sort_idx], predicted[sort_idx], 'r-', linewidth=2.5,
                 label='Model fit', zorder=2)
 
-        ax2.set_xlabel('Net Assimilation, A (μmol m⁻² s⁻¹)', fontsize=12)
+        ax2.set_xlabel('Irradiance, Q (μmol m⁻² s⁻¹)', fontsize=12)
         ax2.set_ylabel('Stomatal Conductance, gs (mol m⁻² s⁻¹)', fontsize=12)
         ax2.set_title('Stomatal Conductance Response', fontsize=13, fontweight='bold')
         ax2.legend(fontsize=10, loc='best')
@@ -165,8 +192,10 @@ class BTA2012(Model):
 
         # Add parameter info box
         param_text = f"Fitted Parameters:\n"
-        param_text += f"gs0 = {gs0:.4f} mol m⁻² s⁻¹\n"
-        param_text += f"g1 = {g1:.3f} √kPa\n\n"
+        param_text += f"Em = {Em:.3f} mmol m⁻² s⁻¹\n"
+        param_text += f"i0 = {i0:.3f} μmol m⁻² s⁻¹\n"
+        param_text += f"k = {k:.3f}\n"
+        param_text += f"b = {b:.4f} mmol mol⁻¹\n\n"
         param_text += f"R² = {r_squared:.4f}"
 
         ax2.text(0.02, 0.98, param_text, transform=ax2.transAxes,

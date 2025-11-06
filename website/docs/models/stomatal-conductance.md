@@ -179,19 +179,25 @@ print(f"D0 = {result.parameters['D0']:.2f} kPa")
 
 ## Buckley-Turnbull-Adams Model (BTA2012)
 
-The BTA model is based on unified stomatal optimization theory, predicting that stomata operate to maximize carbon gain while minimizing water loss:
+The BTA model (Model 4 from Buckley et al. 2012) relates stomatal conductance to irradiance and vapor pressure deficit using lumped parameters:
 
 $$
-g_s = g_{s0} + \frac{{g_1 \cdot A}}{{C_a \sqrt{{VPD}}}}
+g_s = \frac{{E_m(Q + i_0)}}{{k + bQ + (Q + i_0)D_s}}
 $$
 
 where:
 - $g_s$ = Stomatal conductance to water vapor (mol m⁻² s⁻¹)
-- $g_{s0}$ = Minimum conductance (mol m⁻² s⁻¹)
-- $g_1$ = Marginal water use efficiency parameter (dimensionless)
-- $A$ = Net CO₂ assimilation rate (μmol m⁻² s⁻¹)
-- $C_a$ = Atmospheric CO₂ concentration (ppm)
-- $VPD$ = Vapor pressure deficit (kPa)
+- $E_m$ = Maximum leaf transpiration rate (mmol m⁻² s⁻¹)
+- $Q$ = Irradiance/PPFD (μmol m⁻² s⁻¹)
+- $i_0$ = Dark respiration parameter (μmol m⁻² s⁻¹)
+- $k$ = Lumped parameter $K_1/\chi\phi$ (μmol m⁻² s⁻¹ mmol mol⁻¹)
+- $b$ = Lumped parameter $K_1/\chi\alpha_0$ (mmol mol⁻¹)
+- $D_s$ = Leaf surface vapor pressure saturation deficit (mmol mol⁻¹)
+
+The lumped parameters are defined as:
+- $E_m = K_1(\psi_{soil} + \pi_c)$ where $K_1$ is leaf specific hydraulic conductance, $\psi_{soil}$ is soil water potential, and $\pi_c$ is epidermal osmotic pressure
+- $k = K_1/\chi\phi$ where $\chi$ is the turgor to conductance scalar and $\phi$ is the initial slope of $g_s$ response to irradiance
+- $b = K_1/\chi\alpha_0$ where $\alpha_0$ is α in darkness divided by $\phi$
 
 ### Usage
 
@@ -201,25 +207,28 @@ from phytorch.models.stomatal import BTA2012
 
 # Prepare data
 data = {
-    'A': df['Photo'].values,
-    'VPD': df['VPDleaf'].values,
-    'Ca': df['CO2_r'].values,
-    'gs': df['Cond'].values
+    'Q': df['PARi'].values,      # Irradiance (μmol m⁻² s⁻¹)
+    'Ds': df['VPDleaf'].values,  # Leaf surface VPD (mmol mol⁻¹)
+    'gs': df['Cond'].values      # Stomatal conductance (mol m⁻² s⁻¹)
 }
 
 # Fit the model
 result = fit(BTA2012(), data)
 
-print(f"gs0 = {result.parameters['gs0']:.4f} mol/m²/s")
-print(f"g1 = {result.parameters['g1']:.2f}")
+print(f"Em = {result.parameters['Em']:.3f} mmol/m²/s")
+print(f"i0 = {result.parameters['i0']:.2f} μmol/m²/s")
+print(f"k = {result.parameters['k']:.2f}")
+print(f"b = {result.parameters['b']:.3f} mmol/mol")
 ```
 
 ### Parameters
 
 | Parameter | Description | Typical Range | Units |
 |-----------|-------------|---------------|-------|
-| `gs0` | Minimum conductance | 0.0-0.1 | mol/m²/s |
-| `g1` | Marginal WUE parameter | 1-10 | dimensionless |
+| `Em` | Maximum transpiration rate | 0.1-50 | mmol/m²/s |
+| `i0` | Dark respiration parameter | 0-300 | μmol/m²/s |
+| `k` | Lumped parameter K₁/χφ | 0-1×10⁶ (typically ~1×10⁴) | μmol m⁻² s⁻¹ mmol mol⁻¹ |
+| `b` | Lumped parameter K₁/χα₀ | 0-100 (typically ~6.7) | mmol/mol |
 
 ## Advanced Features
 
@@ -259,24 +268,41 @@ print(f"Predicted gs: {predictions}")
 
 ## Comparing Models
 
-Different models may be appropriate for different species or environmental conditions:
+Different models may be appropriate for different species or environmental conditions. Note that BTA2012 requires different input data (irradiance and Ds) compared to the other models:
 
 ```python
 from phytorch import fit
 from phytorch.models.stomatal import MED2011, BWB1987, BBL1995, BTA2012
 
-# Fit all models
-models = {
+# Prepare data for MED2011, BWB1987, and BBL1995
+data_common = {
+    'A': df['Photo'].values,
+    'VPD': df['VPDleaf'].values,
+    'Ca': df['CO2_r'].values,
+    'gs': df['Cond'].values
+}
+
+# Prepare data for BTA2012 (requires different inputs)
+data_bta = {
+    'Q': df['PARi'].values,
+    'Ds': df['VPDleaf'].values,  # or convert VPD to mmol mol⁻¹
+    'gs': df['Cond'].values
+}
+
+# Fit models with common data requirements
+models_common = {
     'Medlyn': MED2011(),
-    'BWB': BWB1987(),
-    'BBL': BBL1995(),
-    'BTA': BTA2012()
+    'BBL': BBL1995()
 }
 
 results = {}
-for name, model in models.items():
-    results[name] = fit(model, data)
+for name, model in models_common.items():
+    results[name] = fit(model, data_common)
     print(f"{name}: R² = {results[name].r_squared:.4f}")
+
+# Fit BTA model separately with its specific data
+results['BTA'] = fit(BTA2012(), data_bta)
+print(f"BTA: R² = {results['BTA'].r_squared:.4f}")
 ```
 
 ## References
