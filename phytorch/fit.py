@@ -84,22 +84,22 @@ def fit(
     method = options.get('method', 'auto')
 
     if method == 'auto':
-        # Auto-select based on model complexity
-        # For now, default to scipy (fast and robust for most cases)
-        # TODO: Add heuristics to choose PyTorch for complex models
-        method = 'scipy'
+        # Auto-select based on model type
+        # Check if model has use_torch_optimizer flag (for complex coupled models)
+        if hasattr(model, 'use_torch_optimizer') and model.use_torch_optimizer:
+            method = 'torch'
+        else:
+            # Default to scipy (fast and robust for empirical models)
+            method = 'scipy'
 
     # Dispatch to appropriate optimizer
     if method == 'scipy':
         return fit_with_scipy(model, data, options)
-    elif method in ['adam', 'lbfgs']:
-        # TODO: Implement PyTorch optimizers
-        raise NotImplementedError(
-            f"PyTorch optimizer '{method}' not yet implemented. "
-            f"Use method='scipy' for now."
-        )
+    elif method in ['torch', 'adam']:
+        from phytorch.core.optimizers.torch_optimizer import fit_with_torch
+        return fit_with_torch(model, data, options)
     else:
         raise ValueError(
             f"Unknown optimization method: '{method}'. "
-            f"Choose from: 'scipy', 'adam', 'lbfgs', 'auto'"
+            f"Choose from: 'scipy', 'torch', 'adam', 'auto'"
         )
