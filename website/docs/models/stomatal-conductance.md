@@ -268,41 +268,35 @@ print(f"Predicted gs: {predictions}")
 
 ## Comparing Models
 
-Different models may be appropriate for different species or environmental conditions. Note that BTA2012 requires different input data (irradiance and Ds) compared to the other models:
+Different models may be appropriate for different species or environmental conditions. Prepare one dataset with all variables - each model uses only what it needs:
 
 ```python
 from phytorch import fit
 from phytorch.models.stomatal import MED2011, BWB1987, BBL1995, BTA2012
 
-# Prepare data for MED2011, BWB1987, and BBL1995
-data_common = {
-    'A': df['Photo'].values,
-    'VPD': df['VPDleaf'].values,
-    'Ca': df['CO2_r'].values,
-    'gs': df['Cond'].values
+# Prepare dataset with all variables
+data = {
+    'A': df['Photo'].values,      # For MED2011, BWB1987, BBL1995
+    'VPD': df['VPDleaf'].values,  # For MED2011, BBL1995
+    'Ca': df['CO2_r'].values,     # For MED2011, BWB1987, BBL1995
+    'hs': df['RH_s'].values,      # For BWB1987 (relative humidity 0-1)
+    'Q': df['PARi'].values,       # For BTA2012 (irradiance)
+    'Ds': df['VPDleaf'].values,   # For BTA2012 (or convert VPD to mmol mol⁻¹)
+    'gs': df['Cond'].values       # Observed gs for all models
 }
 
-# Prepare data for BTA2012 (requires different inputs)
-data_bta = {
-    'Q': df['PARi'].values,
-    'Ds': df['VPDleaf'].values,  # or convert VPD to mmol mol⁻¹
-    'gs': df['Cond'].values
-}
-
-# Fit models with common data requirements
-models_common = {
+# Fit all models with the same dataset
+models = {
     'Medlyn': MED2011(),
-    'BBL': BBL1995()
+    'BWB': BWB1987(),
+    'BBL': BBL1995(),
+    'BTA': BTA2012()
 }
 
 results = {}
-for name, model in models_common.items():
-    results[name] = fit(model, data_common)
+for name, model in models.items():
+    results[name] = fit(model, data)
     print(f"{name}: R² = {results[name].r_squared:.4f}")
-
-# Fit BTA model separately with its specific data
-results['BTA'] = fit(BTA2012(), data_bta)
-print(f"BTA: R² = {results['BTA'].r_squared:.4f}")
 ```
 
 ## References

@@ -30,6 +30,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Utilities',
+      items: [
+        'utilities/li600-correction',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Community Notebooks',
       items: [
         'notebooks/photosynthesis-analysis',
