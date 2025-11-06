@@ -15,9 +15,10 @@ from phytorch import fit
 
 result = fit(model, data)
 result.plot()
+result.write()
 ```
 
-The same three-line pattern works for:
+The same pattern works for:
 - **Generic curve fitting** (9 models: linear, sigmoidal, Michaelis-Menten, temperature responses, distributions)
 - **Hydraulic models** (vulnerability curves, pressure-volume relationships)
 - **Photosynthesis models** (biochemical C3 photosynthesis with environmental responses)
