@@ -13,23 +13,19 @@ from .fit import fit
 # Submodules
 from . import models
 from . import core
-from . import photosynthesis
-from . import leafoptics
-from . import leafhydraulics
 from . import util
+from . import utilities
+from . import photosynthesis_legacy
 
 # Convenience imports (legacy)
-from . import photosynthesis as fvcb
-from . import leafoptics as prospect
+from . import photosynthesis_legacy as fvcb
 
 __all__ = [
     "fit",
     "models",
     "core",
-    "photosynthesis",
-    "leafoptics",
-    "leafhydraulics",
     "util",
+    "utilities",
+    "photosynthesis_legacy",
     "fvcb",
-    "prospect",
 ]
