@@ -11,28 +11,40 @@ PhyTorch implements the Farquhar-von Caemmerer-Berry (FvCB) model for C3 photosy
 The FvCB model calculates net CO2 assimilation rate ($A$) as the minimum of three potentially limiting rates:
 
 $$
-A = \min(W_c, W_j, W_p) - R_d
+A = \min(W_c, W_j, W_p) \left(1 - \frac{{\Gamma^*}}{{C_i}}\right) - R_d
 $$
 
 where:
 - **Rubisco-limited rate ($W_c$)**: Limited by the maximum carboxylation rate ($V_{{cmax}}$)
 - **RuBP regeneration-limited rate ($W_j$)**: Limited by electron transport capacity ($J_{{max}}$)
 - **Triose phosphate utilization-limited rate ($W_p$)**: Limited by the capacity to use photosynthetic products
+- **$\Gamma^*$**: CO2 compensation point in the absence of day respiration
+- **$C_i$**: Intercellular CO2 concentration
 - **$R_d$**: Day respiration
 
 ### Rubisco-Limited Rate
 
 $$
-W_c = \frac{{V_{{cmax}} \cdot (C_i - \Gamma^*)}}{{C_i + K_c(1 + O/K_o)}}
+W_c = \frac{{V_{{cmax}} \cdot C_i}}{{C_i + K_c(1 + O/K_o)}}
 $$
 
 ### RuBP Regeneration-Limited Rate
 
 $$
-W_j = \frac{{J \cdot (C_i - \Gamma^*)}}{{4(C_i + 2\Gamma^*)}}
+W_j = \frac{{J \cdot C_i}}{{4C_i + 8\Gamma^*}}
 $$
 
 where $J$ is the electron transport rate, calculated from light response
+
+### Triose Phosphate Utilization-Limited Rate
+
+$$
+W_p = \frac{{3 \cdot TPU \cdot C_i}}{{C_i - \Gamma^*(1 + 3\alpha_G)}}
+$$
+
+where:
+- $TPU$ is the triose phosphate utilization rate
+- $\alpha_G$ is the fraction of glycolate carbon not returned to the chloroplast (typically 0-0.5)
 
 ### Basic Usage
 
