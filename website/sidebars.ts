@@ -37,6 +37,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Community Notebooks',
+      items: [
+      ],
+    },
+    {
+      type: 'category',
       label: 'API Reference',
       items: [
         'api/index',
