@@ -19,10 +19,10 @@ The correction is based on solving a coupled system of thermodynamic equations a
 ## Basic Usage
 
 ```python
-from phytorch.utilities import correct_li600
+from phytorch.utilities import correct_LI600
 
 # Correct LI-600 measurements
-corrected_data = correct_li600('li600_data.csv', stomatal_sidedness=1)
+corrected_data = correct_LI600('li600_data.csv', stomatal_sidedness=1)
 
 # View original vs corrected values
 print(corrected_data[['gsw', 'gsw_corrected']])
@@ -30,7 +30,7 @@ print(corrected_data[['gsw', 'gsw_corrected']])
 
 ## Parameters
 
-### `correct_li600(filepath, stomatal_sidedness=1.0, thermal_conductance=0.007, save_output=True, output_path=None)`
+### `correct_LI600(filepath, stomatal_sidedness=1.0, thermal_conductance=0.007, save_output=True, output_path=None)`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -81,42 +81,42 @@ The function returns a DataFrame with original data plus corrected columns:
 ### Hypostomatous Leaves
 
 ```python
-from phytorch.utilities import correct_li600
+from phytorch.utilities import correct_LI600
 
 # Correct measurements from leaves with stomata on lower surface only
-data = correct_li600('measurements.csv', stomatal_sidedness=1.0)
+data = correct_LI600('measurements.csv', stomatal_sidedness=1.0)
 ```
 
 ### Amphistomatous Leaves
 
 ```python
 # Correct measurements from leaves with stomata on both surfaces
-data = correct_li600('measurements.csv', stomatal_sidedness=2.0)
+data = correct_LI600('measurements.csv', stomatal_sidedness=2.0)
 ```
 
 ### Without Saving Output
 
 ```python
 # Process data without saving to file
-data = correct_li600('measurements.csv', save_output=False)
+data = correct_LI600('measurements.csv', save_output=False)
 ```
 
 ### Using DataFrame Input
 
 ```python
 import pandas as pd
-from phytorch.utilities import correct_li600
+from phytorch.utilities import correct_LI600
 
 # Read and correct data from DataFrame
 df = pd.read_csv('measurements.csv')
-corrected = correct_li600(df, stomatal_sidedness=1.5, save_output=False)
+corrected = correct_LI600(df, stomatal_sidedness=1.5, save_output=False)
 ```
 
 ### Custom Thermal Conductance
 
 ```python
 # Use custom thermal conductance value (if calibrated for your instrument)
-data = correct_li600('measurements.csv', thermal_conductance=0.008)
+data = correct_LI600('measurements.csv', thermal_conductance=0.008)
 ```
 
 ## Visualization
@@ -124,10 +124,10 @@ data = correct_li600('measurements.csv', thermal_conductance=0.008)
 Plot the correction results to visualize the impact:
 
 ```python
-from phytorch.utilities import correct_li600, plot_correction
+from phytorch.utilities import correct_LI600, plot_correction
 
 # Apply correction
-corrected_data = correct_li600('measurements.csv')
+corrected_data = correct_LI600('measurements.csv')
 
 # Create comparison plots
 fig, axes = plot_correction(corrected_data, save_path='correction_plot.png')

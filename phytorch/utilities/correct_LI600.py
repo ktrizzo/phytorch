@@ -14,8 +14,8 @@ Reference:
     for porometer measurements of stomatal conductance. (In review)
 
 Example:
-    >>> from phytorch.utils import correct_li600
-    >>> corrected_data = correct_li600('li600_data.csv', stomatal_sidedness=1)
+    >>> from phytorch.utils import correct_LI600
+    >>> corrected_data = correct_LI600('li600_data.csv', stomatal_sidedness=1)
     >>> print(corrected_data[['gsw', 'gsw_corrected']])
 """
 
@@ -27,7 +27,7 @@ from typing import Union, Tuple
 import warnings
 
 
-def correct_li600(
+def correct_LI600(
     filepath: Union[str, pd.DataFrame],
     stomatal_sidedness: float = 1.0,
     thermal_conductance: float = 0.007,
@@ -91,15 +91,15 @@ def correct_li600(
     --------
     Correct hypostomatous leaf measurements:
 
-    >>> data = correct_li600('measurements.csv', stomatal_sidedness=1.0)
+    >>> data = correct_LI600('measurements.csv', stomatal_sidedness=1.0)
 
     Correct amphistomatous leaf without saving output:
 
-    >>> data = correct_li600('data.csv', stomatal_sidedness=2.0, save_output=False)
+    >>> data = correct_LI600('data.csv', stomatal_sidedness=2.0, save_output=False)
 
     Use custom thermal conductance:
 
-    >>> data = correct_li600('data.csv', thermal_conductance=0.008)
+    >>> data = correct_LI600('data.csv', thermal_conductance=0.008)
 
     References
     ----------
@@ -321,7 +321,7 @@ def plot_correction(
     Parameters
     ----------
     data : pd.DataFrame
-        DataFrame with both original and corrected values (output of correct_li600)
+        DataFrame with both original and corrected values (output of correct_LI600)
     save_path : str, optional
         Path to save figure. If None, generates name from input data
     show : bool, optional
@@ -334,7 +334,7 @@ def plot_correction(
 
     Examples
     --------
-    >>> corrected_data = correct_li600('data.csv')
+    >>> corrected_data = correct_LI600('data.csv')
     >>> fig, axes = plot_correction(corrected_data, save_path='correction_plot.png')
     """
     import matplotlib.pyplot as plt
