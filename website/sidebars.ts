@@ -37,14 +37,6 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Community Notebooks',
-      items: [
-        'notebooks/photosynthesis-analysis',
-        'notebooks/stomatal-conductance-analysis',
-      ],
-    },
-    {
-      type: 'category',
       label: 'API Reference',
       items: [
         'api/index',
