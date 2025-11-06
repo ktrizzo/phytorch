@@ -202,32 +202,142 @@ class FvCB(Model, nn.Module):
         return loss
 
     def parameter_info(self) -> Dict:
-        """Return parameter metadata."""
-        # Basic parameters - actual bounds depend on configuration
+        """Return parameter metadata for all possible model parameters."""
         params = {
+            # Main biochemical parameters
             'Vcmax25': {
                 'default': 100.0,
                 'bounds': (20.0, 300.0),
                 'units': 'μmol m⁻² s⁻¹',
-                'description': 'Maximum Rubisco carboxylation rate at 25°C'
+                'description': 'Maximum Rubisco carboxylation rate at 25°C',
+                'symbol': 'V_{cmax25}'
             },
             'Jmax25': {
                 'default': 200.0,
                 'bounds': (40.0, 600.0),
                 'units': 'μmol m⁻² s⁻¹',
-                'description': 'Maximum electron transport rate at 25°C'
+                'description': 'Maximum electron transport rate at 25°C',
+                'symbol': 'J_{max25}'
             },
             'TPU25': {
                 'default': 25.0,
                 'bounds': (5.0, 100.0),
                 'units': 'μmol m⁻² s⁻¹',
-                'description': 'Triose phosphate utilization rate at 25°C'
+                'description': 'Triose phosphate utilization rate at 25°C',
+                'symbol': 'TPU_{25}'
             },
             'Rd25': {
                 'default': 1.5,
                 'bounds': (0.0, 10.0),
                 'units': 'μmol m⁻² s⁻¹',
-                'description': 'Dark respiration rate at 25°C'
+                'description': 'Dark respiration rate at 25°C',
+                'symbol': 'R_{d25}'
+            },
+
+            # Light response parameters
+            'LightResponse.alpha': {
+                'default': 0.9,
+                'bounds': (0.0, 1.0),
+                'units': 'mol e⁻ / mol photon',
+                'description': 'Quantum yield of electron transport',
+                'symbol': 'α'
+            },
+            'LightResponse.theta': {
+                'default': 0.7,
+                'bounds': (0.0, 1.0),
+                'units': 'dimensionless',
+                'description': 'Curvature factor for light response',
+                'symbol': 'θ'
+            },
+
+            # Temperature response parameters - Activation energies
+            'TempResponse.dHa_Vcmax': {
+                'default': 73.0,
+                'bounds': (50.0, 120.0),
+                'units': 'kJ mol⁻¹',
+                'description': 'Activation energy for Vcmax',
+                'symbol': 'ΔHa_{Vcmax}'
+            },
+            'TempResponse.dHa_Jmax': {
+                'default': 33.0,
+                'bounds': (20.0, 80.0),
+                'units': 'kJ mol⁻¹',
+                'description': 'Activation energy for Jmax',
+                'symbol': 'ΔHa_{Jmax}'
+            },
+            'TempResponse.dHa_TPU': {
+                'default': 73.0,
+                'bounds': (50.0, 120.0),
+                'units': 'kJ mol⁻¹',
+                'description': 'Activation energy for TPU',
+                'symbol': 'ΔHa_{TPU}'
+            },
+
+            # Temperature response parameters - Optimal temperatures (peaked Arrhenius)
+            'TempResponse.Topt_Vcmax': {
+                'default': 311.15,
+                'bounds': (298.15, 323.15),
+                'units': 'K',
+                'description': 'Optimal temperature for Vcmax',
+                'symbol': 'T_{opt,Vcmax}'
+            },
+            'TempResponse.Topt_Jmax': {
+                'default': 311.15,
+                'bounds': (298.15, 323.15),
+                'units': 'K',
+                'description': 'Optimal temperature for Jmax',
+                'symbol': 'T_{opt,Jmax}'
+            },
+            'TempResponse.Topt_TPU': {
+                'default': 311.15,
+                'bounds': (298.15, 323.15),
+                'units': 'K',
+                'description': 'Optimal temperature for TPU',
+                'symbol': 'T_{opt,TPU}'
+            },
+
+            # Optional biochemical parameters
+            'gm': {
+                'default': 0.4,
+                'bounds': (0.01, 2.0),
+                'units': 'mol m⁻² s⁻¹ bar⁻¹',
+                'description': 'Mesophyll conductance to CO₂',
+                'symbol': 'g_m'
+            },
+            'Gamma25': {
+                'default': 42.75,
+                'bounds': (30.0, 60.0),
+                'units': 'μmol mol⁻¹',
+                'description': 'CO₂ compensation point at 25°C',
+                'symbol': 'Γ*_{25}'
+            },
+            'Kc25': {
+                'default': 404.9,
+                'bounds': (200.0, 800.0),
+                'units': 'μmol mol⁻¹',
+                'description': 'Michaelis constant for CO₂ at 25°C',
+                'symbol': 'K_{c25}'
+            },
+            'Ko25': {
+                'default': 278.4,
+                'bounds': (100.0, 500.0),
+                'units': 'mmol mol⁻¹',
+                'description': 'Michaelis constant for O₂ at 25°C',
+                'symbol': 'K_{o25}'
+            },
+            'alphaG_r': {
+                'default': 0.5,
+                'bounds': (0.0, 1.0),
+                'units': 'dimensionless',
+                'description': 'Stoichiometric ratio of orthophosphate (Pi) consumption in oxygenation',
+                'symbol': 'α_g'
+            },
+            'Rdratio': {
+                'default': 0.015,
+                'bounds': (0.0, 0.05),
+                'units': 'dimensionless',
+                'description': 'Rd as fraction of Vcmax',
+                'symbol': 'R_d/V_{cmax}'
             }
         }
 
