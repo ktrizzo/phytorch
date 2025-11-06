@@ -13,13 +13,16 @@ class BTA2012(Model):
     where gs is stomatal conductance to water vapor (mol m⁻² s⁻¹),
     Em is maximum leaf transpiration rate (mmol m⁻² s⁻¹),
     Q is irradiance/PPFD (μmol m⁻² s⁻¹),
-    i0 is dark respiration parameter (μmol m⁻² s⁻¹),
+    i0 is dark transpiration parameter equal to α/φ (μmol m⁻² s⁻¹),
     k is a lumped parameter (μmol m⁻² s⁻¹ mmol mol⁻¹),
     b is a lumped parameter (mmol mol⁻¹), and
     Ds is leaf surface vapor pressure saturation deficit (mmol mol⁻¹).
 
     This is Model 4 from the paper, which groups parameters as:
-    Em = K1(ψsoil + πc), k = K1/χφ, and b = K1/χα0.
+    Em = K1(ψsoil + πc), k = K1/χφ, b = K1/χα0, and i0 = α/φ.
+
+    The guard cell advantage (α) is approximated as:
+    α = αm φ (Q + i0) / (αm + φ Q)
 
     Reference:
         Buckley, T.N., Turnbull, T.L., & Adams, M.A. (2012). Simple models
@@ -38,7 +41,7 @@ class BTA2012(Model):
             }
             parameters: {
                 'Em': maximum leaf transpiration rate (mmol m⁻² s⁻¹),
-                'i0': dark respiration parameter (μmol m⁻² s⁻¹),
+                'i0': dark transpiration parameter equal to α/φ (μmol m⁻² s⁻¹),
                 'k': lumped parameter (μmol m⁻² s⁻¹ mmol mol⁻¹),
                 'b': lumped parameter (mmol mol⁻¹)
             }
@@ -79,7 +82,7 @@ class BTA2012(Model):
                 'default': 50.0,
                 'bounds': (0.0, 300.0),
                 'units': 'μmol m⁻² s⁻¹',
-                'description': 'Dark respiration parameter',
+                'description': 'Dark transpiration parameter (α/φ)',
                 'symbol': 'i_0'
             },
             'k': {
@@ -110,7 +113,7 @@ class BTA2012(Model):
         Em_guess = np.max(gs) * 1000.0 * 2.0  # Convert mol to mmol and scale
         Em_guess = np.clip(Em_guess, 1.0, 50.0)
 
-        # i0: typical value for dark respiration
+        # i0: typical value for dark transpiration parameter
         i0_guess = 50.0
 
         # k: typical lumped parameter value

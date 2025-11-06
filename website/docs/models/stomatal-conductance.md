@@ -189,7 +189,7 @@ where:
 - $g_s$ = Stomatal conductance to water vapor (mol m⁻² s⁻¹)
 - $E_m$ = Maximum leaf transpiration rate (mmol m⁻² s⁻¹)
 - $Q$ = Irradiance/PPFD (μmol m⁻² s⁻¹)
-- $i_0$ = Dark respiration parameter (μmol m⁻² s⁻¹)
+- $i_0$ = Dark transpiration parameter equal to $\alpha/\phi$ (μmol m⁻² s⁻¹)
 - $k$ = Lumped parameter $K_1/\chi\phi$ (μmol m⁻² s⁻¹ mmol mol⁻¹)
 - $b$ = Lumped parameter $K_1/\chi\alpha_0$ (mmol mol⁻¹)
 - $D_s$ = Leaf surface vapor pressure saturation deficit (mmol mol⁻¹)
@@ -198,6 +198,15 @@ The lumped parameters are defined as:
 - $E_m = K_1(\psi_{soil} + \pi_c)$ where $K_1$ is leaf specific hydraulic conductance, $\psi_{soil}$ is soil water potential, and $\pi_c$ is epidermal osmotic pressure
 - $k = K_1/\chi\phi$ where $\chi$ is the turgor to conductance scalar and $\phi$ is the initial slope of $g_s$ response to irradiance
 - $b = K_1/\chi\alpha_0$ where $\alpha_0$ is α in darkness divided by $\phi$
+- $i_0 = \alpha/\phi$ where $\alpha$ is the guard cell advantage
+
+The guard cell advantage ($\alpha$) is approximated as:
+
+$$
+\alpha = \frac{\alpha_m \phi (Q + i_0)}{\alpha_m + \phi Q}
+$$
+
+where $\alpha_m$ is the maximum guard cell advantage.
 
 ### Usage
 
@@ -226,7 +235,7 @@ print(f"b = {result.parameters['b']:.3f} mmol/mol")
 | Parameter | Description | Typical Range | Units |
 |-----------|-------------|---------------|-------|
 | `Em` | Maximum transpiration rate | 0.1-50 | mmol/m²/s |
-| `i0` | Dark respiration parameter | 0-300 | μmol/m²/s |
+| `i0` | Dark transpiration parameter (α/φ) | 0-300 | μmol/m²/s |
 | `k` | Lumped parameter K₁/χφ | 0-1×10⁶ (typically ~1×10⁴) | μmol m⁻² s⁻¹ mmol mol⁻¹ |
 | `b` | Lumped parameter K₁/χα₀ | 0-100 (typically ~6.7) | mmol/mol |
 
