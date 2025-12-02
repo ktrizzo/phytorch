@@ -29,6 +29,7 @@ def fit_with_torch(
             - verbose: Print progress (default: True)
             - scheduler_step: LR scheduler step size (default: 5000)
             - scheduler_gamma: LR scheduler decay (default: 0.8)
+            - fixed_parameters: Dict of parameters to keep fixed (e.g., {'alpha': 0.85})
 
     Returns:
         FitResult with fitted parameters and diagnostics
@@ -43,6 +44,7 @@ def fit_with_torch(
     verbose = options.get('verbose', True)
     scheduler_step = options.get('scheduler_step', 5000)
     scheduler_gamma = options.get('scheduler_gamma', 0.8)
+    fixed_params = options.get('fixed_parameters', {})
 
     # Setup device
     if device_name == 'cuda' and torch.cuda.is_available():
@@ -60,8 +62,58 @@ def fit_with_torch(
     if hasattr(model, '_prepare_data'):
         model._prepare_data(data)
 
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate)
+    # Apply fixed parameters: set values and disable gradients
+    if fixed_params:
+        # Map common parameter names to their full paths in the model
+        param_name_map = {
+            'alpha': 'core_model.LightResponse.alpha',
+            'theta': 'core_model.LightResponse.theta',
+            'LightResponse.alpha': 'core_model.LightResponse.alpha',
+            'LightResponse.theta': 'core_model.LightResponse.theta',
+        }
+
+        for param_name, fixed_value in fixed_params.items():
+            # Try to find the parameter using the name map or direct lookup
+            full_name = param_name_map.get(param_name, param_name)
+
+            # Navigate to the parameter
+            param_found = False
+            parts = full_name.split('.')
+            obj = model
+            try:
+                for part in parts[:-1]:
+                    obj = getattr(obj, part)
+                param_attr = parts[-1]
+
+                if hasattr(obj, param_attr):
+                    param = getattr(obj, param_attr)
+                    if isinstance(param, nn.Parameter):
+                        # Set the fixed value and disable gradients
+                        with torch.no_grad():
+                            param.fill_(fixed_value)
+                        param.requires_grad = False
+                        param_found = True
+                        if verbose:
+                            print(f"Fixed {param_name} = {fixed_value}")
+            except AttributeError:
+                pass
+
+            if not param_found and verbose:
+                print(f"Warning: Could not find parameter '{param_name}' to fix")
+
+    # Setup optimizer and scheduler (only trainable parameters)
+    # Also track which parameters are trainable vs fixed
+    trainable_params = []
+    fitted_param_names = []
+    fixed_param_names = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            trainable_params.append(param)
+            fitted_param_names.append(name)
+        else:
+            fixed_param_names.append(name)
+
+    optimizer = torch.optim.Adam(trainable_params, lr=learn_rate)
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer, step_size=scheduler_step, gamma=scheduler_gamma
     )
@@ -154,11 +206,16 @@ def fit_with_torch(
         for name, param in model.named_parameters():
             parameters[name] = param.detach().cpu().item() if param.numel() == 1 else param.detach().cpu().numpy()
 
-    # Get observed data
-    # For models with custom data structures (like FvCB), use get_observed_data()
-    if hasattr(model, 'get_observed_data'):
+    # Get observed data and preprocessed data dict
+    # For models with preprocessing (like FvCB), use preprocessed data for consistency
+    if hasattr(model, 'get_preprocessed_data'):
+        result_data = model.get_preprocessed_data()
+        y_obs = model.get_observed_data()
+    elif hasattr(model, 'get_observed_data'):
+        result_data = data
         y_obs = model.get_observed_data()
     else:
+        result_data = data
         required_fields = model.required_data()
         y_field = required_fields[-1]
         y_obs = np.asarray(data[y_field])
@@ -175,13 +232,15 @@ def fit_with_torch(
         'learn_rate': learn_rate,
         'iterations': best_iter,
         'final_loss': best_loss,
-        'elapsed_time': elapsed_time
+        'elapsed_time': elapsed_time,
+        'fitted_parameters': fitted_param_names,
+        'fixed_parameters': fixed_param_names
     }
 
     return FitResult(
         model=model,
         parameters=parameters,
-        data=data,
+        data=result_data,
         predictions=predictions,
         residuals=residuals,
         loss=loss_final,

@@ -363,6 +363,28 @@ class FvCB(Model, nn.Module):
             raise ValueError("Model not initialized with data yet")
         return self.lcd.A.cpu().numpy()
 
+    def get_preprocessed_data(self) -> Dict:
+        """Return preprocessed data dict (after filtering/outlier removal)."""
+        if self.lcd is None:
+            raise ValueError("Model not initialized with data yet")
+
+        result = {
+            'A': self.lcd.A.cpu().numpy(),
+            'Ci': self.lcd.Ci.cpu().numpy(),
+            'Qin': self.lcd.Q.cpu().numpy(),
+            'Tleaf': self.lcd.Tleaf.cpu().numpy(),
+        }
+
+        # Handle CurveID - may be tensor or numpy array, only include if valid
+        if hasattr(self.lcd, 'FGs_idx') and self.lcd.FGs_idx is not None:
+            curve_id = self.lcd.FGs_idx
+            if hasattr(curve_id, 'cpu'):
+                curve_id = curve_id.cpu().numpy()
+            if len(curve_id) == len(result['A']):
+                result['CurveID'] = curve_id
+
+        return result
+
     def get_all_parameters(self) -> Dict:
         """
         Return all model parameters, including both fitted and default values.
@@ -370,17 +392,21 @@ class FvCB(Model, nn.Module):
         This extracts:
         - Fitted parameters from nn.Parameter objects
         - Default values for parameters that weren't fitted
-        - Parameters from nested modules (LightResponse, TempResponse)
+        - All biochemical constants and temperature dependencies
 
         Returns:
-            Dictionary of all parameter names and values
+            Dictionary of all parameter names and values (flat structure)
         """
         if self.core_model is None:
             raise ValueError("Model not initialized. Call fit() first.")
 
         all_params = {}
 
-        # Extract all nn.Parameters from the model
+        # Get default parameters object
+        from .fvcb_core_legacy import allparameters
+        ap = allparameters()
+
+        # Extract all nn.Parameters from the model (these are the fitted ones)
         for name, param in self.core_model.named_parameters():
             if param.numel() > 1:
                 # Take mean for array parameters (across curves)
@@ -388,69 +414,93 @@ class FvCB(Model, nn.Module):
             else:
                 all_params[name] = param.detach().cpu().item()
 
-        # Add default values for non-fitted parameters from allparameters
-        from .fvcb_core_legacy import allparameters
-        ap = allparameters()
+        # Main biochemical parameters (Vcmax25, Jmax25, TPU25, Rd25 should already be in all_params from nn.Parameters)
 
-        # Check and add light response parameters
-        if not hasattr(self.core_model.LightResponse, 'alpha'):
-            all_params['LightResponse.alpha'] = ap.alpha.item()
-        if not hasattr(self.core_model.LightResponse, 'theta'):
-            all_params['LightResponse.theta'] = ap.theta.item()
+        # Light response parameters
+        if 'LightResponse.alpha' not in all_params:
+            all_params['alpha'] = ap.alpha.item()
+        else:
+            all_params['alpha'] = all_params.pop('LightResponse.alpha')
 
-        # Check and add temperature response defaults if not fitted
-        if not hasattr(self.core_model.TempResponse, 'dHa_Vcmax'):
-            all_params['TempResponse.dHa_Vcmax'] = ap.dHa_Vcmax.item()
-        if not hasattr(self.core_model.TempResponse, 'dHa_Jmax'):
-            all_params['TempResponse.dHa_Jmax'] = ap.dHa_Jmax.item()
-        if not hasattr(self.core_model.TempResponse, 'dHa_TPU'):
-            all_params['TempResponse.dHa_TPU'] = ap.dHa_TPU.item()
+        if 'LightResponse.theta' not in all_params:
+            all_params['theta'] = ap.theta.item()
+        else:
+            all_params['theta'] = all_params.pop('LightResponse.theta')
 
-        # Add Topt if using peaked Arrhenius
-        if self.temp_response_type == 2:
-            if not hasattr(self.core_model.TempResponse, 'Topt_Vcmax'):
-                all_params['TempResponse.Topt_Vcmax'] = ap.Topt_Vcmax.item()
-            if not hasattr(self.core_model.TempResponse, 'Topt_Jmax'):
-                all_params['TempResponse.Topt_Jmax'] = ap.Topt_Jmax.item()
-            if not hasattr(self.core_model.TempResponse, 'Topt_TPU'):
-                all_params['TempResponse.Topt_TPU'] = ap.Topt_TPU.item()
+        # Temperature response - activation energies
+        if 'TempResponse.dHa_Vcmax' not in all_params:
+            all_params['Vcmax_dHa'] = ap.dHa_Vcmax.item()
+        else:
+            all_params['Vcmax_dHa'] = all_params.pop('TempResponse.dHa_Vcmax')
 
-        # Check and add biochemical parameters
-        if not self.fit_gm:
+        if 'TempResponse.dHa_Jmax' not in all_params:
+            all_params['Jmax_dHa'] = ap.dHa_Jmax.item()
+        else:
+            all_params['Jmax_dHa'] = all_params.pop('TempResponse.dHa_Jmax')
+
+        if 'TempResponse.dHa_TPU' not in all_params:
+            all_params['TPU_dHa'] = ap.dHa_TPU.item()
+        else:
+            all_params['TPU_dHa'] = all_params.pop('TempResponse.dHa_TPU')
+
+        # Temperature response - optimal temperatures (peaked Arrhenius)
+        if 'TempResponse.Topt_Vcmax' not in all_params:
+            all_params['Vcmax_Topt'] = ap.Topt_Vcmax.item()
+        else:
+            all_params['Vcmax_Topt'] = all_params.pop('TempResponse.Topt_Vcmax')
+
+        if 'TempResponse.Topt_Jmax' not in all_params:
+            all_params['Jmax_Topt'] = ap.Topt_Jmax.item()
+        else:
+            all_params['Jmax_Topt'] = all_params.pop('TempResponse.Topt_Jmax')
+
+        if 'TempResponse.Topt_TPU' not in all_params:
+            all_params['TPU_Topt'] = ap.Topt_TPU.item()
+        else:
+            all_params['TPU_Topt'] = all_params.pop('TempResponse.Topt_TPU')
+
+        # Temperature response - deactivation energies
+        all_params['Vcmax_dHd'] = ap.dHd_Vcmax.item()
+        all_params['Jmax_dHd'] = ap.dHd_Jmax.item()
+        all_params['TPU_dHd'] = ap.dHd_TPU.item()
+
+        # Rd temperature response
+        all_params['Rd_dHa'] = ap.dHa_Rd.item()
+
+        # CO2 compensation point and its temperature response
+        if self.fit_gamma and hasattr(self.core_model, 'Gamma25'):
+            all_params['Gamma25'] = self.core_model.Gamma25.detach().cpu().mean().item()
+        else:
+            all_params['Gamma25'] = ap.Gamma25.item()
+        all_params['Gamma_dHa'] = ap.dHa_Gamma.item()
+
+        # Michaelis constants for CO2 and O2 and their temperature responses
+        if self.fit_Kc and hasattr(self.core_model, 'Kc25'):
+            all_params['Kc25'] = self.core_model.Kc25.detach().cpu().mean().item()
+        else:
+            all_params['Kc25'] = ap.Kc25.item()
+        all_params['Kc_dHa'] = ap.dHa_Kc.item()
+
+        if self.fit_Ko and hasattr(self.core_model, 'Ko25'):
+            all_params['Ko25'] = self.core_model.Ko25.detach().cpu().mean().item()
+        else:
+            all_params['Ko25'] = ap.Ko25.item()
+        all_params['Ko_dHa'] = ap.dHa_Ko.item()
+
+        # Oxygen concentration
+        all_params['O'] = ap.oxy.item()
+
+        # Mesophyll conductance
+        if self.fit_gm and hasattr(self.core_model, 'gm'):
+            all_params['gm'] = self.core_model.gm.detach().cpu().mean().item()
+        else:
             all_params['gm'] = ap.gm.item()
 
-        if not self.fit_gamma:
-            all_params['Gamma25'] = ap.Gamma25.item()
+        # Alpha_G (stoichiometric ratio)
+        if hasattr(self.core_model, 'fitag') and self.core_model.fitag and hasattr(self.core_model, '_FvCB__alphaG_r'):
+            all_params['alpha_G'] = self.core_model._FvCB__alphaG_r.detach().cpu().mean().item()
         else:
-            # Gamma25 might be fitted but stored differently
-            if 'Gamma25' not in all_params and hasattr(self.core_model, 'Gamma25'):
-                if isinstance(self.core_model.Gamma25, torch.Tensor):
-                    all_params['Gamma25'] = self.core_model.Gamma25.detach().cpu().mean().item()
-
-        if not self.fit_Kc:
-            all_params['Kc25'] = ap.Kc25.item()
-        else:
-            if 'Kc25' not in all_params and hasattr(self.core_model, 'Kc25'):
-                if isinstance(self.core_model.Kc25, torch.Tensor):
-                    all_params['Kc25'] = self.core_model.Kc25.detach().cpu().mean().item()
-
-        if not self.fit_Ko:
-            all_params['Ko25'] = ap.Ko25.item()
-        else:
-            if 'Ko25' not in all_params and hasattr(self.core_model, 'Ko25'):
-                if isinstance(self.core_model.Ko25, torch.Tensor):
-                    all_params['Ko25'] = self.core_model.Ko25.detach().cpu().mean().item()
-
-        # Add alphaG_r if not fitted
-        if hasattr(self.core_model, 'fitag') and not self.core_model.fitag:
-            all_params['alphaG_r'] = ap.alphaG_r.item()
-
-        # Add Rdratio if using it instead of Rd
-        if hasattr(self.core_model, 'fitRdratio') and self.core_model.fitRdratio:
-            if hasattr(self.core_model, '_FvCB__Rdratio'):
-                all_params['Rdratio'] = self.core_model._FvCB__Rdratio.detach().cpu().mean().item()
-        elif not self.fit_Rd:
-            all_params['Rdratio'] = ap.Rdratio_r.item()
+            all_params['alpha_G'] = ap.alphaG_r.item()
 
         return all_params
 
@@ -494,123 +544,74 @@ class FvCB(Model, nn.Module):
         Ci_mean = Ci_obs.mean()
         Q_mean = 2000.0
 
-        # Helper function to evaluate model on grid using pure FvCB (no gm correction)
-        # This matches temp_photorch/photorch/src/fvcb/evaluate.py approach
+        # Helper function to evaluate model on grid using FvCB equations with fitted parameters
         def evaluate_model_grid(Ci_grid, Q_grid, T_grid):
             """
-            Evaluate model on a grid using FvCB equations with Ci (not Cc).
-            Uses smooth hyperbolic minimum as in legacy evaluateFvCB.
-            No gm correction, no TPU limitation - only Ac and Aj.
+            Evaluate model on a grid using FvCB equations with the fitted parameters.
+            Uses the complete parameter set to ensure accurate predictions.
             """
-            n_points = len(Ci_grid.flatten())
+            # Flatten inputs
+            Ci_flat = Ci_grid.flatten()
+            Q_flat = Q_grid.flatten()
+            T_flat = T_grid.flatten()
 
-            # Create temporary tensors
-            Ci_tensor = torch.tensor(Ci_grid.flatten(), dtype=torch.float32)
-            Q_tensor = torch.tensor(Q_grid.flatten(), dtype=torch.float32)
-            T_tensor = torch.tensor(T_grid.flatten(), dtype=torch.float32)
+            # Get all fitted/fixed parameters
+            params = self.get_all_parameters()
 
-            # Smooth hyperbolic minimum function
-            def hmin(f1, f2):
-                """Smooth minimum function to avoid sharp transitions"""
+            # Constants
+            R = 0.008314  # kJ/(mol·K)
+            Tref = 298.15  # K
+
+            # Compute temperature-scaled parameters for each point
+            A_result = []
+            for Ci_val, Q_val, T_val in zip(Ci_flat, Q_flat, T_flat):
+                # Simple Arrhenius for Vcmax
+                Vcmax_arr = params['Vcmax25'] * np.exp(params['Vcmax_dHa'] / R * (1/Tref - 1/T_val))
+
+                # Apply peaked Arrhenius deactivation
+                dHd_dHa = params['Vcmax_dHd'] / params['Vcmax_dHa']
+                dHd_dHa = max(dHd_dHa, 1.0001)
+                log_term = np.log(dHd_dHa - 1)
+                num = 1 + np.exp(params['Vcmax_dHd'] / R * (1/params['Vcmax_Topt'] - 1/Tref) - log_term)
+                den = 1 + np.exp(params['Vcmax_dHd'] / R * (1/params['Vcmax_Topt'] - 1/T_val) - log_term)
+                Vcmax = Vcmax_arr * num / den
+
+                # Same for Jmax
+                Jmax_arr = params['Jmax25'] * np.exp(params['Jmax_dHa'] / R * (1/Tref - 1/T_val))
+                dHd_dHa = params['Jmax_dHd'] / params['Jmax_dHa']
+                dHd_dHa = max(dHd_dHa, 1.0001)
+                log_term = np.log(dHd_dHa - 1)
+                num = 1 + np.exp(params['Jmax_dHd'] / R * (1/params['Jmax_Topt'] - 1/Tref) - log_term)
+                den = 1 + np.exp(params['Jmax_dHd'] / R * (1/params['Jmax_Topt'] - 1/T_val) - log_term)
+                Jmax = Jmax_arr * num / den
+
+                # Rd with simple Arrhenius
+                Rd = params['Rd25'] * np.exp(params['Rd_dHa'] / R * (1/Tref - 1/T_val))
+
+                # Michaelis constants
+                Kc = params['Kc25'] * np.exp(params['Kc_dHa'] / R * (1/Tref - 1/T_val))
+                Ko = params['Ko25'] * np.exp(params['Ko_dHa'] / R * (1/Tref - 1/T_val))
+                Gamma = params['Gamma25'] * np.exp(params['Gamma_dHa'] / R * (1/Tref - 1/T_val))
+
+                # Electron transport rate
+                alpha = params['alpha']
+                theta = params['theta']
+                J = (alpha * Q_val + Jmax - np.sqrt((alpha * Q_val + Jmax)**2 - 4 * theta * alpha * Q_val * Jmax)) / (2 * theta)
+
+                # Rubisco-limited rate
+                Kco = Kc * (1 + params['O'] / Ko)
+                Ac = Vcmax * (Ci_val - Gamma) / (Ci_val + Kco) - Rd
+
+                # RuBP-regeneration-limited rate
+                Aj = 0.25 * J * (Ci_val - Gamma) / (Ci_val + 2 * Gamma) - Rd
+
+                # Smooth minimum
                 theta_smooth = 0.999
-                return (f1 + f2 - np.sqrt((f1 + f2)**2 - 4 * theta_smooth * f1 * f2)) / (2 * theta_smooth)
+                A = (Ac + Aj - np.sqrt((Ac + Aj)**2 - 4 * theta_smooth * Ac * Aj)) / (2 * theta_smooth)
 
-            # Get mean parameter values for evaluation
-            with torch.no_grad():
-                # Extract parameters
-                params_dict = {}
-                for name, param in self.core_model.named_parameters():
-                    if param.numel() > 1:
-                        params_dict[name] = param.mean().item()
-                    else:
-                        params_dict[name] = param.item()
+                A_result.append(A)
 
-                # Get biochemical parameters
-                from .fvcb_core_legacy import allparameters
-                ap = allparameters()
-
-                # Calculate photosynthesis for each point
-                A_result = []
-                for i in range(n_points):
-                    Ci_val = Ci_tensor[i].item()
-                    Q_val = Q_tensor[i].item()
-                    T_val = T_tensor[i].item()
-
-                    # Get Vcmax, Jmax, Rd at reference temperature
-                    Vcmax25 = params_dict.get('Vcmax25', 100.0)
-                    Jmax25 = params_dict.get('Jmax25', 200.0)
-                    Rd25 = params_dict.get('Rd25', 1.5)
-
-                    # Temperature corrections
-                    R = 0.0083144598  # kJ/(mol·K)
-                    Tref = 298.15
-
-                    # Get temperature response parameters
-                    dHa_Vcmax = params_dict.get('TempResponse.dHa_Vcmax', 73.0)
-                    dHa_Jmax = params_dict.get('TempResponse.dHa_Jmax', 33.0)
-
-                    # Check if using peaked Arrhenius (temp_response=2)
-                    has_Topt = 'TempResponse.Topt_Vcmax' in params_dict
-
-                    if has_Topt:
-                        # Peaked Arrhenius temperature response
-                        Topt_Vcmax = params_dict.get('TempResponse.Topt_Vcmax', 311.15)
-                        Topt_Jmax = params_dict.get('TempResponse.Topt_Jmax', 311.15)
-                        dHd_Vcmax = ap.dHd_Vcmax.item()
-                        dHd_Jmax = ap.dHd_Jmax.item()
-
-                        # Simple Arrhenius first
-                        Vcmax_arr = Vcmax25 * np.exp(dHa_Vcmax * (T_val - Tref) / (R * T_val * Tref))
-                        Jmax_arr = Jmax25 * np.exp(dHa_Jmax * (T_val - Tref) / (R * T_val * Tref))
-
-                        # Apply deactivation (peaked Arrhenius)
-                        def peaked_arrhenius(k_arr, dHa, dHd, Topt):
-                            dHd_R = dHd / R
-                            dHd_dHa = dHd / dHa
-                            dHd_dHa = max(dHd_dHa, 1.0001)
-                            log_dHd_dHa = np.log(dHd_dHa - 1)
-                            rec_Topt = 1 / Topt
-                            rec_Tref = 1 / Tref
-                            rec_Tval = 1 / T_val
-
-                            numerator = 1 + np.exp(dHd_R * (rec_Topt - rec_Tref) - log_dHd_dHa)
-                            denominator = 1 + np.exp(dHd_R * (rec_Topt - rec_Tval) - log_dHd_dHa)
-                            return k_arr * numerator / denominator
-
-                        Vcmax = peaked_arrhenius(Vcmax_arr, dHa_Vcmax, dHd_Vcmax, Topt_Vcmax)
-                        Jmax = peaked_arrhenius(Jmax_arr, dHa_Jmax, dHd_Jmax, Topt_Jmax)
-                    else:
-                        # Simple Arrhenius temperature response
-                        Vcmax = Vcmax25 * np.exp(dHa_Vcmax * (T_val - Tref) / (R * T_val * Tref))
-                        Jmax = Jmax25 * np.exp(dHa_Jmax * (T_val - Tref) / (R * T_val * Tref))
-
-                    # Rd uses simple Arrhenius
-                    Rd = Rd25 * np.exp(46.39 * (T_val - Tref) / (R * T_val * Tref))
-
-                    # Get Kc, Ko, Gamma
-                    Kc = ap.Kc25 * np.exp(ap.dHa_Kc * (T_val - Tref) / (R * T_val * Tref))
-                    Ko = ap.Ko25 * np.exp(ap.dHa_Ko * (T_val - Tref) / (R * T_val * Tref))
-                    Gamma = ap.Gamma25 * np.exp(ap.dHa_Gamma * (T_val - Tref) / (R * T_val * Tref))
-
-                    # Calculate J from light response
-                    alpha = params_dict.get('LightResponse.alpha', 0.9)
-                    theta = params_dict.get('LightResponse.theta', 0.7) if hasattr(self.core_model.LightResponse, 'theta') else 0.7
-                    J = (alpha * Q_val + Jmax - np.sqrt((alpha * Q_val + Jmax)**2 - 4 * theta * alpha * Q_val * Jmax)) / (2 * theta)
-
-                    # Calculate RuBisCO-limited rate (vr in legacy)
-                    Kco = Kc * (1 + ap.oxy / Ko)
-                    Ac = Vcmax * ((Ci_val - Gamma) / (Ci_val + Kco)) - Rd
-
-                    # Calculate RuBP-limited rate (jr in legacy)
-                    # Note: 0.25 * J = J/4 (electron transport to CO2 fixation ratio)
-                    Aj = 0.25 * J * ((Ci_val - Gamma) / (Ci_val + 2 * Gamma)) - Rd
-
-                    # Use smooth hyperbolic minimum (no hard min, no TPU)
-                    A = hmin(Ac, Aj)
-
-                    A_result.append(A)
-
-                return np.array(A_result).reshape(Ci_grid.shape)
+            return np.array(A_result).reshape(Ci_grid.shape)
 
         # Create figure with 2x3 subplots
         fig = plt.figure(figsize=(18, 12))

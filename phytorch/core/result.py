@@ -547,17 +547,42 @@ class FitResult:
 
         # Add fitted parameters
         param_info = self.model.parameter_info()
+        fitted_params = self.optimizer_info.get('fitted_parameters', []) if self.optimizer_info else []
+
+        # Normalize parameter names for matching (remove module prefixes like 'core_model.')
+        def normalize_name(name):
+            # Map internal names to output names
+            name_map = {
+                'core_model.LightResponse.alpha': 'alpha',
+                'core_model.LightResponse.theta': 'theta',
+                'core_model.TempResponse.dHa_Vcmax': 'Vcmax_dHa',
+                'core_model.TempResponse.dHa_Jmax': 'Jmax_dHa',
+                'core_model.TempResponse.dHa_TPU': 'TPU_dHa',
+                'core_model.TempResponse.dHa_Rd': 'Rd_dHa',
+                'core_model.TempResponse.Topt_Vcmax': 'Vcmax_Topt',
+                'core_model.TempResponse.Topt_Jmax': 'Jmax_Topt',
+                'core_model.TempResponse.Topt_TPU': 'TPU_Topt',
+            }
+            return name_map.get(name, name.split('.')[-1])
+
+        fitted_param_names_normalized = [normalize_name(n) for n in fitted_params]
+
         for param_name, param_value in self.parameters.items():
             info = param_info.get(param_name, {})
             units = info.get('units', '')
             description = info.get('description', '')
             symbol = info.get('symbol', param_name)
+            is_fitted = param_name in fitted_param_names_normalized
+            category = 'Fitted Parameters' if is_fitted else 'Fixed Parameters'
+            notes = f'{symbol}: {description}' if description else symbol
+            if not is_fitted:
+                notes = f'[FIXED] {notes}'
             results_data.append({
-                'Category': 'Fitted Parameters',
+                'Category': category,
                 'Parameter': param_name,
                 'Value': param_value,
                 'Units': units,
-                'Notes': f'{symbol}: {description}' if description else symbol
+                'Notes': notes
             })
 
         # Add parameter uncertainties if available
