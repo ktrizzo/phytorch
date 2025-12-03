@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='phytorch-lib',
-    version='0.1.1',
+    version='0.1.3',
     author='Tong Lei, Kyle T. Rizzo, Brian N. Bailey',
     author_email='',
     description='PhyTorch is a PyTorch-based modeling toolkit for fitting common plant physiological models of photosynthesis, stomatal conductance, leaf hydraulics, and optical properties.',
