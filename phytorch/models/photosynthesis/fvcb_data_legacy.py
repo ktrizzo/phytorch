@@ -181,7 +181,15 @@ class initLicordata():
                     print('Warning: Invalid Qin found, filling with default value 2000')
             self.Ci = torch.cat((self.Ci, torch.tensor(Ci)))
             try:
-                self.Tleaf = torch.cat((self.Tleaf,torch.tensor(LCdata['Tleaf'].iloc[indices].to_numpy() + 273.15)))
+                Tleaf_raw = LCdata['Tleaf'].iloc[indices].to_numpy()
+                # Detect if temperature is in Kelvin or Celsius
+                # If mean > 200, assume already in Kelvin; otherwise assume Celsius
+                if np.mean(Tleaf_raw) > 200:
+                    # Already in Kelvin, no conversion needed
+                    self.Tleaf = torch.cat((self.Tleaf, torch.tensor(Tleaf_raw)))
+                else:
+                    # Convert from Celsius to Kelvin
+                    self.Tleaf = torch.cat((self.Tleaf, torch.tensor(Tleaf_raw + 273.15)))
             except:
                 # fill Tleaf with default value 25
                 self.Tleaf = torch.cat((self.Tleaf, torch.tensor([25+273.15]*len(indices))))
