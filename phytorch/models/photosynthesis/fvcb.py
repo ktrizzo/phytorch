@@ -168,7 +168,18 @@ class FvCB(Model, nn.Module):
                 raise ValueError("No data available. Call with data first.")
             data = self._data_cache
         elif self.lcd is None or data is not self._data_cache:
+            # Save fitted parameters before _prepare_data resets them
+            saved_params = None
+            if self.core_model is not None:
+                saved_params = {name: param.data.clone() for name, param in self.core_model.named_parameters()}
+
             self._prepare_data(data)
+
+            # Restore fitted parameters after _prepare_data
+            if saved_params is not None:
+                for name, param in self.core_model.named_parameters():
+                    if name in saved_params:
+                        param.data.copy_(saved_params[name])
 
         # Forward through core model
         A, Ac, Aj, Ap = self.core_model()
@@ -191,7 +202,18 @@ class FvCB(Model, nn.Module):
         """
         # Prepare data if needed
         if self.lcd is None or data is not self._data_cache:
+            # Save fitted parameters before _prepare_data resets them
+            saved_params = None
+            if self.core_model is not None:
+                saved_params = {name: param.data.clone() for name, param in self.core_model.named_parameters()}
+
             self._prepare_data(data)
+
+            # Restore fitted parameters after _prepare_data
+            if saved_params is not None:
+                for name, param in self.core_model.named_parameters():
+                    if name in saved_params:
+                        param.data.copy_(saved_params[name])
 
         # Forward pass
         A, Ac, Aj, Ap = self.core_model()
@@ -570,7 +592,18 @@ class FvCB(Model, nn.Module):
                 raise ValueError("No data available. Call fit() first.")
             data = self._data_cache
         elif self.lcd is None or data is not self._data_cache:
+            # Save fitted parameters before _prepare_data resets them
+            saved_params = None
+            if self.core_model is not None:
+                saved_params = {name: param.data.clone() for name, param in self.core_model.named_parameters()}
+
             self._prepare_data(data)
+
+            # Restore fitted parameters after _prepare_data
+            if saved_params is not None:
+                for name, param in self.core_model.named_parameters():
+                    if name in saved_params:
+                        param.data.copy_(saved_params[name])
 
         # Get predictions and observed data
         with torch.no_grad():
