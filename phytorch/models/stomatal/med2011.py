@@ -68,7 +68,7 @@ class MED2011(Model):
             },
             'g1': {
                 'default': 4.0,
-                'bounds': (0.5, 15.0),
+                'bounds': (0.1, 100.0),
                 'units': '',
                 'description': 'Slope parameter',
                 'symbol': 'g_1'
