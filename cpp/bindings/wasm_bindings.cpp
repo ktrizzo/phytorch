@@ -13,7 +13,20 @@
 #endif
 
 #include "phytorch/fit.hpp"
+
 #include "phytorch/models/generic/arrhenius.hpp"
+#include "phytorch/models/generic/gaussian.hpp"
+#include "phytorch/models/generic/linear.hpp"
+#include "phytorch/models/generic/nonrectangular_hyperbola.hpp"
+#include "phytorch/models/generic/peaked_arrhenius.hpp"
+#include "phytorch/models/generic/rectangular_hyperbola.hpp"
+#include "phytorch/models/generic/sigmoidal.hpp"
+#include "phytorch/models/generic/weibull.hpp"
+
+#include "phytorch/models/stomatal/bbl1995.hpp"
+#include "phytorch/models/stomatal/bta2012.hpp"
+#include "phytorch/models/stomatal/bwb1987.hpp"
+#include "phytorch/models/stomatal/med2011.hpp"
 
 #include <string>
 #include <vector>
@@ -115,10 +128,17 @@ static emscripten::val fit_model(emscripten::val data, emscripten::val options) 
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_BINDINGS(phytorch_module) {
     using namespace phytorch;
-    emscripten::function("fit_arrhenius",
-        &wasm::fit_model<models::Arrhenius>);
-    // Add additional models here as they are ported:
-    //   emscripten::function("fit_medlyn",   &wasm::fit_model<models::Medlyn2011>);
-    //   emscripten::function("fit_sigmoid",  &wasm::fit_model<models::HydraulicSigmoid>);
+    emscripten::function("fit_arrhenius",                 &wasm::fit_model<models::Arrhenius>);
+    emscripten::function("fit_linear",                    &wasm::fit_model<models::Linear>);
+    emscripten::function("fit_gaussian",                  &wasm::fit_model<models::Gaussian>);
+    emscripten::function("fit_sigmoidal",                 &wasm::fit_model<models::Sigmoidal>);
+    emscripten::function("fit_weibull",                   &wasm::fit_model<models::Weibull>);
+    emscripten::function("fit_peaked_arrhenius",          &wasm::fit_model<models::PeakedArrhenius>);
+    emscripten::function("fit_rectangular_hyperbola",     &wasm::fit_model<models::RectangularHyperbola>);
+    emscripten::function("fit_nonrectangular_hyperbola",  &wasm::fit_model<models::NonrectangularHyperbola>);
+    emscripten::function("fit_bwb1987", &wasm::fit_model<models::BWB1987>);
+    emscripten::function("fit_bbl1995", &wasm::fit_model<models::BBL1995>);
+    emscripten::function("fit_med2011", &wasm::fit_model<models::MED2011>);
+    emscripten::function("fit_bta2012", &wasm::fit_model<models::BTA2012>);
 }
 #endif

@@ -4,9 +4,9 @@
 // names, same dispatch logic (auto → LM unless overridden), same shape of
 // returned FitResult.
 //
-// Templated on Model so the optimizer can statically inline the model's
-// forward(); this is what makes WASM execution competitive with native code
-// (no virtual dispatch in the inner loop).
+// Templated on Model so the optimizer inlines the model's forward(). That's
+// what makes WASM execution competitive with native code: no virtual
+// dispatch in the inner loop.
 
 #include "fit_options.hpp"
 #include "fit_result.hpp"
@@ -15,9 +15,9 @@
 #include "optimizers/levenberg_marquardt.hpp"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace phytorch {
 
@@ -29,14 +29,11 @@ FitResult fit(
 {
     using VecP = Eigen::Matrix<double, M::n_params, 1>;
 
-    if (X.rows() != y.size()) {
+    if (X.rows() != y.size())
         throw std::invalid_argument("fit(): X and y must have the same number of rows");
-    }
-    if (X.rows() < M::n_params) {
+    if (X.rows() < M::n_params)
         throw std::invalid_argument("fit(): need at least as many observations as parameters");
-    }
 
-    // ---- assemble p0 / lb / ub from model defaults + options -----------
     VecP p0 = M::initial_guess(X, y);
     VecP lb, ub;
     for (int j = 0; j < M::n_params; ++j) {
@@ -58,35 +55,30 @@ FitResult fit(
         p0(j) = std::clamp(p0(j), lb(j), ub(j));
     }
 
-    Method m = opts.method == Method::Auto ? Method::LevenbergMarquardt : opts.method;
+    Method method = opts.method == Method::Auto ? Method::LevenbergMarquardt : opts.method;
+
+    optim::OptimizerResult<M::n_params> opt = (method == Method::Adam)
+        ? optim::adam<M>(X, y, p0, lb, ub, opts)
+        : optim::levenberg_marquardt<M>(X, y, p0, lb, ub, opts);
+
+    Eigen::VectorXd y_pred = batch_forward<M, double>(X, opt.p_final);
+    const double ss_tot   = (y.array() - y.mean()).square().sum();
 
     FitResult res;
-    if (m == Method::Adam) {
-        res = optim::adam<M>(X, y, p0, lb, ub, opts);
-    } else {
-        res = optim::levenberg_marquardt<M>(X, y, p0, lb, ub, opts);
-    }
-
-    // ---- recover named parameters + predictions ------------------------
-    VecP p_final;
-    // Levenberg–Marquardt and Adam both return residuals & loss; we need the
-    // final point too. We re-evaluate forward() once to fill predictions and
-    // a parameter dict — cheap, and avoids leaking optimizer internals.
-    //
-    // The optimizers store their final p in res.fitted_parameter_order /
-    // covariance dimensions; for the initial design we recompute by storing
-    // p in residuals' associated state, so re-run a single batch_forward.
-    //
-    // (The optimizer signatures will be tightened in a follow-up to return
-    // the final p directly — this is the minimum viable wiring.)
-    p_final = p0;  // TODO: have optimizers return final p; placeholder here.
-
-    Eigen::VectorXd y_pred = M::template batch_forward<double>(X, p_final);
-    res.predictions = y_pred;
+    res.predictions     = y_pred;
+    res.residuals       = opt.residuals;
+    res.loss            = opt.loss;
+    res.r_squared       = ss_tot > 0.0 ? 1.0 - opt.loss / ss_tot : 0.0;
+    res.converged       = opt.converged;
+    res.iterations      = opt.iterations;
+    res.method          = (method == Method::Adam) ? "adam" : "levenberg_marquardt";
+    res.status_message  = opt.status_message;
+    res.covariance      = opt.covariance;
 
     for (int j = 0; j < M::n_params; ++j) {
-        res.parameters[std::string(M::info[j].name)] = p_final(j);
-        res.fitted_parameter_order.emplace_back(M::info[j].name);
+        const std::string name(M::info[j].name);
+        res.parameters[name] = opt.p_final(j);
+        res.fitted_parameter_order.emplace_back(name);
     }
     return res;
 }

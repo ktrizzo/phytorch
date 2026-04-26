@@ -1,25 +1,24 @@
 #pragma once
 
-// Adam (Kingma & Ba 2014) on the sum-of-squares loss, with simple projection
-// onto box bounds. Mirrors the phytorch torch_optimizer path: useful when the
-// loss surface has many local minima or when LM's damped Gauss–Newton step
-// gets stuck (most often in coupled biochemical models like FvCB).
+// Adam (Kingma & Ba 2014) on sum-of-squares loss with simple box projection.
+// Mirrors phytorch's torch_optimizer path; useful when LM's damped
+// Gauss–Newton step gets stuck (most often in coupled biochemical models).
 //
-// Gradient ∇_p L = Jᵀ r, where J is again obtained via forward-mode AD.
+// Gradient ∇_p ½||r||² = Jᵀ r — Jacobian via forward-mode AD again.
 
 #include "../autodiff.hpp"
 #include "../fit_options.hpp"
-#include "../fit_result.hpp"
-#include "../model.hpp"
+#include "optimizer_result.hpp"
 
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace phytorch::optim {
 
 template <class Model>
-FitResult adam(
+OptimizerResult<Model::n_params> adam(
     const Eigen::Matrix<double, Eigen::Dynamic, Model::n_inputs>& X,
     const Eigen::VectorXd& y,
     const Eigen::Matrix<double, Model::n_params, 1>& p0,
@@ -27,12 +26,12 @@ FitResult adam(
     const Eigen::Matrix<double, Model::n_params, 1>& ub,
     const FitOptions& opts)
 {
-    using Dual = ad::Dual<Model::n_params>;
-    using VecP = Eigen::Matrix<double, Model::n_params, 1>;
-    using DualV = Eigen::Matrix<Dual, Model::n_params, 1>;
+    using Dual  = ad::Dual<Model::n_params>;
+    using VecP  = Eigen::Matrix<double, Model::n_params, 1>;
+    using DualV = Eigen::Matrix<Dual,   Model::n_params, 1>;
 
     const Eigen::Index N = y.size();
-    const int          P = Model::n_params;
+    constexpr int      P = Model::n_params;
 
     auto project = [&](VecP p) {
         for (int j = 0; j < P; ++j) p(j) = std::clamp(p(j), lb(j), ub(j));
@@ -45,12 +44,11 @@ FitResult adam(
 
     Eigen::VectorXd r;
     double prev_loss = std::numeric_limits<double>::infinity();
-    bool converged = false;
-    int  iter      = 0;
+    bool   converged = false;
+    int    iter      = 0;
     std::string status = "max_iterations";
 
     for (; iter < opts.max_iterations; ++iter) {
-        // Forward + Jacobian via dual numbers.
         DualV pd;
         for (int j = 0; j < P; ++j) pd(j) = Dual::seed(p(j), j);
 
@@ -62,7 +60,7 @@ FitResult adam(
             Dual yi = Model::template forward<Dual>(xi, pd);
             const double ri = yi.value - y(i);
             r(i) = ri;
-            grad.noalias() += ri * yi.grad;  // ∇ ½||r||² = Jᵀr
+            grad.noalias() += ri * yi.grad;
         }
 
         const double loss = r.squaredNorm();
@@ -72,7 +70,7 @@ FitResult adam(
         if (grad.cwiseAbs().maxCoeff() < opts.gtol) { converged = true; status = "gtol"; break; }
         prev_loss = loss;
 
-        const double t  = static_cast<double>(iter + 1);
+        const double t   = static_cast<double>(iter + 1);
         const double bc1 = 1.0 - std::pow(opts.beta1, t);
         const double bc2 = 1.0 - std::pow(opts.beta2, t);
 
@@ -90,16 +88,14 @@ FitResult adam(
         p = p_new;
     }
 
-    FitResult res;
-    res.iterations    = iter;
-    res.converged     = converged;
-    res.method        = "adam";
-    res.status_message = status;
-    res.residuals     = r;
-    res.loss          = r.squaredNorm();
-    const double ss_tot = (y.array() - y.mean()).square().sum();
-    res.r_squared = ss_tot > 0.0 ? 1.0 - res.loss / ss_tot : 0.0;
-    return res;
+    OptimizerResult<P> out;
+    out.p_final        = p;
+    out.residuals      = r;
+    out.loss           = r.squaredNorm();
+    out.iterations     = iter;
+    out.converged      = converged;
+    out.status_message = status;
+    return out;
 }
 
 }  // namespace phytorch::optim

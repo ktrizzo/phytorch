@@ -66,7 +66,16 @@ endif()
 # ---------------------------------------------------------------------------
 if(PHYTORCH_BUILD_TESTS AND NOT EMSCRIPTEN)
     enable_testing()
+
     add_executable(test_arrhenius tests/test_arrhenius.cpp)
     target_link_libraries(test_arrhenius PRIVATE phytorch)
     add_test(NAME arrhenius COMMAND test_arrhenius)
+
+    add_executable(test_all tests/test_all.cpp)
+    target_link_libraries(test_all PRIVATE phytorch)
+    add_test(NAME all_models COMMAND test_all)
+
+    add_executable(bench_native benchmarks/bench_native.cpp)
+    target_link_libraries(bench_native PRIVATE phytorch)
+    target_compile_options(bench_native PRIVATE -O3 -DNDEBUG)
 endif()

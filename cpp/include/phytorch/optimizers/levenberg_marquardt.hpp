@@ -4,20 +4,16 @@
 // with method='trf'. Jacobians come from forward-mode autodiff (Dual<N>) so
 // the model author never writes a derivative by hand.
 //
-// Algorithm sketch (standard LM with damping λ):
-//   J  = ∂r/∂p evaluated at current p
-//   g  = Jᵀr
-//   H  = JᵀJ + λI
-//   solve H Δp = -g
-//   accept if loss decreases, decrease λ; else reject and increase λ
-// Box constraints are handled by a reflective step that mirrors trial points
-// back into the feasible region (matches scipy's 'trf' behavior closely
-// enough for the well-behaved fits typical of plant physiology).
+// Standard LM with Marquardt damping λ:
+//   J  = ∂r/∂p, g = Jᵀr, H = JᵀJ + λI
+//   solve H Δp = -g; accept if loss decreases (decay λ), else reject (grow λ)
+// Box constraints handled by reflecting trial points back into the feasible
+// region — close enough to scipy's 'trf' for the well-conditioned problems
+// typical of plant physiology fitting.
 
 #include "../autodiff.hpp"
 #include "../fit_options.hpp"
-#include "../fit_result.hpp"
-#include "../model.hpp"
+#include "optimizer_result.hpp"
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -26,7 +22,7 @@
 namespace phytorch::optim {
 
 template <class Model>
-FitResult levenberg_marquardt(
+OptimizerResult<Model::n_params> levenberg_marquardt(
     const Eigen::Matrix<double, Eigen::Dynamic, Model::n_inputs>& X,
     const Eigen::VectorXd& y,
     const Eigen::Matrix<double, Model::n_params, 1>& p0,
@@ -39,7 +35,7 @@ FitResult levenberg_marquardt(
     using DualV = Eigen::Matrix<Dual,   Model::n_params, 1>;
 
     const Eigen::Index N = y.size();
-    const int          P = Model::n_params;
+    constexpr int      P = Model::n_params;
 
     auto reflect = [&](VecP p) {
         for (int j = 0; j < P; ++j) {
@@ -74,15 +70,19 @@ FitResult levenberg_marquardt(
     eval(p, r, J);
     double cost = 0.5 * r.squaredNorm();
 
-    double lambda  = 1e-3;
-    bool   converged = false;
-    int    iter      = 0;
-    std::string status = "max_iterations";
+    double      lambda    = 1e-3;
+    bool        converged = false;
+    int         iter      = 0;
+    std::string status    = "max_iterations";
 
     for (; iter < opts.max_iterations; ++iter) {
         Eigen::MatrixXd H = J.transpose() * J;
         Eigen::VectorXd g = J.transpose() * r;
-        H.diagonal().array() += lambda;
+        // Marquardt's diagonal scaling: λ·diag(JᵀJ) instead of λ·I makes the
+        // step roughly invariant to per-parameter scaling, which matters a
+        // lot when parameters span several orders of magnitude (e.g. BTA2012
+        // where k ≈ 1e4 and b ≈ 7).
+        H.diagonal().array() += lambda * H.diagonal().array().abs();
 
         VecP dp = H.ldlt().solve(-g);
 
@@ -108,28 +108,20 @@ FitResult levenberg_marquardt(
         }
     }
 
-    FitResult res;
-    res.iterations = iter;
-    res.converged  = converged;
-    res.method     = "levenberg_marquardt";
-    res.status_message = status;
-    res.predictions    = y + r * 0.0;  // placeholder; filled by caller
-    res.residuals      = r;
-    res.loss           = r.squaredNorm();
-    const double ss_tot = (y.array() - y.mean()).square().sum();
-    res.r_squared = ss_tot > 0.0 ? 1.0 - res.loss / ss_tot : 0.0;
+    OptimizerResult<P> out;
+    out.p_final        = p;
+    out.residuals      = r;
+    out.loss           = r.squaredNorm();
+    out.iterations     = iter;
+    out.converged      = converged;
+    out.status_message = status;
 
-    // Covariance ≈ σ² · (JᵀJ)⁻¹ where σ² = RSS / (N - P).
     if (N > P) {
-        const double sigma2 = res.loss / static_cast<double>(N - P);
+        const double sigma2 = out.loss / static_cast<double>(N - P);
         Eigen::MatrixXd JtJ = J.transpose() * J;
-        res.covariance = sigma2 * JtJ.completeOrthogonalDecomposition().pseudoInverse();
+        out.covariance = sigma2 * JtJ.completeOrthogonalDecomposition().pseudoInverse();
     }
-
-    // Caller fills parameters{} map and predictions vector — it knows the
-    // parameter names and how fixed/fit are merged.
-    (void)res.parameters;
-    return res;
+    return out;
 }
 
 }  // namespace phytorch::optim

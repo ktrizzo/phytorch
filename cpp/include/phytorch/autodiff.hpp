@@ -71,6 +71,33 @@ template <int N> Dual<N> pow(const Dual<N>& a, double p) {
 template <int N> Dual<N> abs(const Dual<N>& a) {
     return a.value >= 0.0 ? a : -a;
 }
+template <int N> Dual<N> sin(const Dual<N>& a) { return {std::sin(a.value), std::cos(a.value) * a.grad}; }
+template <int N> Dual<N> cos(const Dual<N>& a) { return {std::cos(a.value), -std::sin(a.value) * a.grad}; }
+
+// ---- comparisons (compare values only — derivative info is irrelevant) -
+
+template <int N> bool operator<(const Dual<N>& a, const Dual<N>& b) { return a.value <  b.value; }
+template <int N> bool operator>(const Dual<N>& a, const Dual<N>& b) { return a.value >  b.value; }
+template <int N> bool operator<=(const Dual<N>& a, const Dual<N>& b){ return a.value <= b.value; }
+template <int N> bool operator>=(const Dual<N>& a, const Dual<N>& b){ return a.value >= b.value; }
+template <int N> bool operator==(const Dual<N>& a, const Dual<N>& b){ return a.value == b.value; }
+template <int N> bool operator!=(const Dual<N>& a, const Dual<N>& b){ return a.value != b.value; }
+template <int N> bool operator<(const Dual<N>& a, double b)  { return a.value <  b; }
+template <int N> bool operator>(const Dual<N>& a, double b)  { return a.value >  b; }
+template <int N> bool operator<=(const Dual<N>& a, double b) { return a.value <= b; }
+template <int N> bool operator>=(const Dual<N>& a, double b) { return a.value >= b; }
+template <int N> bool operator<(double a, const Dual<N>& b)  { return a <  b.value; }
+template <int N> bool operator>(double a, const Dual<N>& b)  { return a >  b.value; }
+template <int N> bool operator<=(double a, const Dual<N>& b) { return a <= b.value; }
+template <int N> bool operator>=(double a, const Dual<N>& b) { return a >= b.value; }
+
+// max/min that preserve gradient flow through whichever branch is selected.
+template <int N> Dual<N> max(const Dual<N>& a, const Dual<N>& b) { return a.value >= b.value ? a : b; }
+template <int N> Dual<N> min(const Dual<N>& a, const Dual<N>& b) { return a.value <= b.value ? a : b; }
+template <int N> Dual<N> max(const Dual<N>& a, double b) { return a.value >= b ? a : Dual<N>(b); }
+template <int N> Dual<N> max(double a, const Dual<N>& b) { return max(b, a); }
+template <int N> Dual<N> min(const Dual<N>& a, double b) { return a.value <= b ? a : Dual<N>(b); }
+template <int N> Dual<N> min(double a, const Dual<N>& b) { return min(b, a); }
 
 template <int N> std::ostream& operator<<(std::ostream& os, const Dual<N>& d) {
     return os << d.value << " (∂=" << d.grad.transpose() << ")";
