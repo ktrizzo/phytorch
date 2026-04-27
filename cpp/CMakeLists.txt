@@ -48,8 +48,23 @@ if(PHYTORCH_BUILD_WASM)
     target_link_libraries(phytorch_wasm PRIVATE phytorch)
     # -O3 must also be passed at compile time — Emscripten only optimizes
     # bitcode that was compiled at the same level it sees at link.
-    target_compile_options(phytorch_wasm PRIVATE -O3 -DNDEBUG -flto)
-    target_link_options(phytorch_wasm PRIVATE -flto)
+    # -O3 must also be passed at compile time — Emscripten only optimizes
+    # bitcode that was compiled at the same level it sees at link.
+    #
+    # -msimd128 was tried and is a near-no-op for these models: the
+    # autodiff inner loop is Dual<P> with P=2..5, and Eigen 3.4's
+    # vectorization layer has no WASM SIMD packet specialization, so its
+    # JᵀJ / Jᵀr matmul stays scalar. Toggle to compare; disabled by default
+    # since it adds ~50 KB of SIMD instructions for no measurable speedup
+    # on either N=60 or N=1000 across all 13 models. Re-enable once Eigen
+    # gains WASM SIMD or once the autodiff loop is hand-vectorized.
+    option(PHYTORCH_WASM_SIMD "Emit WebAssembly SIMD (v128) instructions" OFF)
+    set(_phyto_wasm_flags -O3 -DNDEBUG -flto)
+    if(PHYTORCH_WASM_SIMD)
+        list(APPEND _phyto_wasm_flags -msimd128)
+    endif()
+    target_compile_options(phytorch_wasm PRIVATE ${_phyto_wasm_flags})
+    target_link_options(phytorch_wasm PRIVATE ${_phyto_wasm_flags})
 
     # MODULARIZE produces a function (createPhytorchModule) the caller
     # invokes to instantiate; works as CommonJS under Node and as a global
