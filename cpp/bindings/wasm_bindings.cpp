@@ -154,6 +154,37 @@ static emscripten::val fit_model(emscripten::val data, emscripten::val options) 
     return pack_result(fit<M>(X, y, unpack_options(options)));
 }
 
+// Diagnostic helpers — used by bench_wasm.mjs to attribute WASM/native gap
+// to either Embind marshalling vs actual WASM compute.
+//
+//   noop():               pure JS↔WASM round-trip, no args at all.
+//   noop_data(data):      same as fit_arrhenius's input marshalling
+//                         (parses {T, y} into Eigen vectors), then returns.
+//   noop_full(data):      input marshal + a pack_result() with the same-
+//                         shape Float64Arrays — same total round-trip
+//                         shape as a real fit minus the LM kernel.
+static int noop() { return 0; }
+
+template <class M>
+static int noop_data(emscripten::val data) {
+    auto [X, y] = unpack_data<M>(data);
+    // Touch the data so the optimizer can't eliminate the marshalling.
+    return static_cast<int>(X.rows() + y.size());
+}
+
+template <class M>
+static emscripten::val noop_full(emscripten::val data) {
+    auto [X, y] = unpack_data<M>(data);
+    FitResult r;
+    r.predictions = y;
+    r.residuals   = y;
+    r.r_squared   = 0.0;
+    for (int j = 0; j < M::n_params; ++j)
+        r.parameters[std::string(M::info[j].name)] = 0.0;
+    r.method = "noop";
+    return pack_result(r);
+}
+
 }  // namespace phytorch::wasm
 
 #ifdef __EMSCRIPTEN__
@@ -172,5 +203,10 @@ EMSCRIPTEN_BINDINGS(phytorch_module) {
     emscripten::function("fit_bbl1995", &wasm::fit_model<models::BBL1995>);
     emscripten::function("fit_med2011", &wasm::fit_model<models::MED2011>);
     emscripten::function("fit_bta2012", &wasm::fit_model<models::BTA2012>);
+
+    // Diagnostic / floor-finding helpers (used by bench_wasm.mjs --diagnose).
+    emscripten::function("noop",                &wasm::noop);
+    emscripten::function("noop_data_arrhenius", &wasm::noop_data<models::Arrhenius>);
+    emscripten::function("noop_full_arrhenius", &wasm::noop_full<models::Arrhenius>);
 }
 #endif
