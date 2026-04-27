@@ -74,6 +74,22 @@ template <int N> Dual<N> abs(const Dual<N>& a) {
 template <int N> Dual<N> sin(const Dual<N>& a) { return {std::sin(a.value), std::cos(a.value) * a.grad}; }
 template <int N> Dual<N> cos(const Dual<N>& a) { return {std::cos(a.value), -std::sin(a.value) * a.grad}; }
 
+// Digamma ψ(x) = d/dx log Γ(x). Standard recipe: shift to x ≥ 6 via
+// ψ(x) = ψ(x+1) - 1/x, then asymptotic series. Accurate to ~1e-12 for
+// x > 0, which is the regime any sane physiology fit puts it in.
+inline double digamma(double x) {
+    double result = 0.0;
+    while (x < 6.0) { result -= 1.0 / x; x += 1.0; }
+    const double x2 = 1.0 / (x * x);
+    result += std::log(x) - 0.5 / x
+            - x2 * (1.0 / 12.0 - x2 * (1.0 / 120.0 - x2 / 252.0));
+    return result;
+}
+
+template <int N> Dual<N> lgamma(const Dual<N>& a) {
+    return {std::lgamma(a.value), digamma(a.value) * a.grad};
+}
+
 // ---- comparisons (compare values only — derivative info is irrelevant) -
 
 template <int N> bool operator<(const Dual<N>& a, const Dual<N>& b) { return a.value <  b.value; }

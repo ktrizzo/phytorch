@@ -33,10 +33,21 @@ struct BTA2012 : Model<BTA2012> {
     }
 
     static Eigen::Matrix<double, n_params, 1>
-    initial_guess(const Eigen::MatrixXd&, const Eigen::VectorXd& y) {
-        double Em_g = std::clamp(y.maxCoeff() * 1000.0 * 2.0, 1.0, 50.0);
+    initial_guess(const Eigen::MatrixXd& X, const Eigen::VectorXd& y) {
+        // At saturating light (large Q) and assuming i0 ≪ Q,
+        //   gs ≈ Em / (b + Ds) / 1000
+        // so Em ≈ max(gs) · (b_default + Ds_at_gsmax) · 1000.
+        // This dimensionally-grounded estimate puts Em close enough that
+        // LM with diagonal scaling reliably converges.
+        const double b_def = 20.0 / 3.0;
+        Eigen::Index k_max;
+        y.maxCoeff(&k_max);
+        const double Ds_at_max = X(k_max, 1);
+        const double Em_g = std::clamp(
+            y.maxCoeff() * (b_def + Ds_at_max) * 1000.0, 1.0, 50.0);
+
         Eigen::Matrix<double, n_params, 1> p0;
-        p0 << Em_g, 50.0, 1e4, 20.0/3.0;
+        p0 << Em_g, 50.0, 1e4, b_def;
         return p0;
     }
 };

@@ -4,6 +4,7 @@
 #include "phytorch/fit.hpp"
 
 #include "phytorch/models/generic/arrhenius.hpp"
+#include "phytorch/models/generic/beta.hpp"
 #include "phytorch/models/generic/gaussian.hpp"
 #include "phytorch/models/generic/linear.hpp"
 #include "phytorch/models/generic/nonrectangular_hyperbola.hpp"
@@ -102,6 +103,11 @@ int main() {
         Eigen::Matrix<double,3,1> p; p << 0.05, 30.0, 0.7;
         auto X = linspace_inputs<NonrectangularHyperbola>(30, 5.0, 1500.0, rng);
         if (!run<NonrectangularHyperbola>("NonrectangularHyperbola", X, p, 0.99)) ++failures;
+    }
+    {
+        Eigen::Matrix<double,5,1> p; p << 4.0, 0.0, 10.0, 2.5, 3.0;
+        auto X = linspace_inputs<Beta>(40, 0.2, 9.8, rng);
+        if (!run<Beta>("Beta", X, p, 0.99)) ++failures;
     }
 
     // -- Stomatal models: synthesize multi-input data ----------------

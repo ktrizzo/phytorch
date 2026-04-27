@@ -15,6 +15,7 @@
 #include "phytorch/fit.hpp"
 
 #include "phytorch/models/generic/arrhenius.hpp"
+#include "phytorch/models/generic/beta.hpp"
 #include "phytorch/models/generic/gaussian.hpp"
 #include "phytorch/models/generic/linear.hpp"
 #include "phytorch/models/generic/nonrectangular_hyperbola.hpp"
@@ -33,25 +34,46 @@
 
 namespace phytorch::wasm {
 
+// Fast path: typed-array → C++ vector via HEAP view.
+// Embind's vecFromJSArray<double>() iterates JS↔C++ element-by-element,
+// which dominates fit time for typical N=60 datasets (each round-trip is
+// ~10 μs of marshalling vs ~5 μs of actual fit). When the caller passes a
+// Float64Array, we read its byteOffset/length and Eigen::Map straight onto
+// the underlying ArrayBuffer — a single memcpy instead of N V8 calls.
+static Eigen::VectorXd to_vec_fast(const emscripten::val& v) {
+    using emscripten::val;
+    if (v.instanceof(val::global("Float64Array"))) {
+        const unsigned len = v["length"].as<unsigned>();
+        std::vector<double> tmp(len);
+        // Use HEAPF64 view to copy via memcpy; emscripten::val::set on heap
+        // pointer would be UB, so we reflect through TypedArray.set instead.
+        val heapBuffer = val::module_property("HEAPF64")["buffer"];
+        val dest = val::global("Float64Array").new_(
+            heapBuffer,
+            reinterpret_cast<uintptr_t>(tmp.data()),
+            len);
+        dest.call<void>("set", v);
+        return Eigen::Map<Eigen::VectorXd>(tmp.data(), tmp.size());
+    }
+    // Fallback: plain JS Array → element-wise (slow path).
+    std::vector<double> tmp = emscripten::vecFromJSArray<double>(v);
+    return Eigen::Map<Eigen::VectorXd>(tmp.data(), tmp.size());
+}
+
 // JS object {x: [...], y: [...]}  →  (X, y) Eigen matrices.
 template <class M>
 static std::pair<
     Eigen::Matrix<double, Eigen::Dynamic, M::n_inputs>,
     Eigen::VectorXd>
 unpack_data(const emscripten::val& data) {
-    using emscripten::val;
-    using emscripten::vecFromJSArray;
-
-    std::vector<double> y_raw = vecFromJSArray<double>(data["y"]);
-    Eigen::VectorXd y = Eigen::Map<Eigen::VectorXd>(y_raw.data(), y_raw.size());
-
+    Eigen::VectorXd y = to_vec_fast(data["y"]);
     Eigen::Matrix<double, Eigen::Dynamic, M::n_inputs> X(y.size(), M::n_inputs);
     for (int k = 0; k < M::n_inputs; ++k) {
         const std::string col(M::required_data[k]);
-        std::vector<double> v = vecFromJSArray<double>(data[col]);
-        if (static_cast<Eigen::Index>(v.size()) != y.size())
+        Eigen::VectorXd v = to_vec_fast(data[col]);
+        if (v.size() != y.size())
             throw std::invalid_argument("data column '" + col + "' length mismatch with y");
-        X.col(k) = Eigen::Map<Eigen::VectorXd>(v.data(), v.size());
+        X.col(k) = v;
     }
     return {X, y};
 }
@@ -95,6 +117,21 @@ static FitOptions unpack_options(const emscripten::val& opts) {
     return o;
 }
 
+// Build a Float64Array that *copies out* of an Eigen::VectorXd via TypedArray
+// .set() (one V8 round-trip + one memcpy on the JS side). This avoids the
+// O(N) per-element val::set() loop that previously dominated fit time.
+static emscripten::val to_f64_array(const Eigen::VectorXd& v) {
+    using emscripten::val;
+    val heap = val::module_property("HEAPF64")["buffer"];
+    val view = val::global("Float64Array").new_(
+        heap,
+        reinterpret_cast<uintptr_t>(const_cast<double*>(v.data())),
+        static_cast<unsigned>(v.size()));
+    // Slice copies into a fresh Float64Array detached from WASM memory, so
+    // it survives the next allocation/grow.
+    return view.call<val>("slice", 0);
+}
+
 static emscripten::val pack_result(const FitResult& r) {
     emscripten::val out = emscripten::val::object();
     emscripten::val params = emscripten::val::object();
@@ -106,14 +143,8 @@ static emscripten::val pack_result(const FitResult& r) {
     out.set("iterations",      r.iterations);
     out.set("method",          r.method);
     out.set("status_message",  r.status_message);
-
-    emscripten::val preds = emscripten::val::array();
-    for (Eigen::Index i = 0; i < r.predictions.size(); ++i) preds.set(i, r.predictions(i));
-    out.set("predictions", preds);
-
-    emscripten::val resid = emscripten::val::array();
-    for (Eigen::Index i = 0; i < r.residuals.size(); ++i)   resid.set(i, r.residuals(i));
-    out.set("residuals",   resid);
+    out.set("predictions",     to_f64_array(r.predictions));
+    out.set("residuals",       to_f64_array(r.residuals));
     return out;
 }
 
@@ -136,6 +167,7 @@ EMSCRIPTEN_BINDINGS(phytorch_module) {
     emscripten::function("fit_peaked_arrhenius",          &wasm::fit_model<models::PeakedArrhenius>);
     emscripten::function("fit_rectangular_hyperbola",     &wasm::fit_model<models::RectangularHyperbola>);
     emscripten::function("fit_nonrectangular_hyperbola",  &wasm::fit_model<models::NonrectangularHyperbola>);
+    emscripten::function("fit_beta",                      &wasm::fit_model<models::Beta>);
     emscripten::function("fit_bwb1987", &wasm::fit_model<models::BWB1987>);
     emscripten::function("fit_bbl1995", &wasm::fit_model<models::BBL1995>);
     emscripten::function("fit_med2011", &wasm::fit_model<models::MED2011>);

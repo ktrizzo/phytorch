@@ -25,6 +25,7 @@ from phytorch.models.generic.weibull                  import Weibull
 from phytorch.models.generic.peaked_arrhenius        import PeakedArrhenius
 from phytorch.models.generic.rectangular_hyperbola    import RectangularHyperbola
 from phytorch.models.generic.nonrectangular_hyperbola import NonrectangularHyperbola
+from phytorch.models.generic.beta                     import Beta
 from phytorch.models.stomatal.bwb1987 import BWB1987
 from phytorch.models.stomatal.bbl1995 import BBL1995
 from phytorch.models.stomatal.med2011 import MED2011
@@ -81,6 +82,7 @@ def main():
         ("PeakedArrhenius",           PeakedArrhenius(),           linspace(N, 283.15, 318.0),  {"ymax": 3.0, "Ha": 60.0, "Hd": 200.0, "Topt": 305.0},      0.02),
         ("RectangularHyperbola",      RectangularHyperbola(),      linspace(N, 0.1, 30.0),      {"ymax": 8.0, "x50": 3.5},                                  0.05),
         ("NonrectangularHyperbola",   NonrectangularHyperbola(),   linspace(N, 5.0, 1500.0),    {"alpha": 0.05, "ymax": 30.0, "theta": 0.7},                0.1),
+        ("Beta",                      Beta(),                      linspace(N, 0.2, 9.8),       {"a": 4.0, "xmin": 0.0, "xmax": 10.0, "alpha": 2.5, "beta": 3.0}, 0.005),
     ]
 
     for label, model, x, params, sigma in cases:
@@ -109,7 +111,7 @@ def main():
     data["gs"] = synth(BTA2012(),
                        data,
                        {"Em": 12.0, "i0": 60.0, "k": 1.5e4, "b": 7.0},
-                       0.0005)
+                       1e-6)
     bench("BTA2012", BTA2012(), data, R)
 
 

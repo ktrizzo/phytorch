@@ -46,17 +46,24 @@ if(PHYTORCH_BUILD_WASM)
 
     add_executable(phytorch_wasm bindings/wasm_bindings.cpp)
     target_link_libraries(phytorch_wasm PRIVATE phytorch)
+    # -O3 must also be passed at compile time — Emscripten only optimizes
+    # bitcode that was compiled at the same level it sees at link.
+    target_compile_options(phytorch_wasm PRIVATE -O3 -DNDEBUG -flto)
+    target_link_options(phytorch_wasm PRIVATE -flto)
 
+    # MODULARIZE produces a function (createPhytorchModule) the caller
+    # invokes to instantiate; works as CommonJS under Node and as a global
+    # in the browser. Avoiding EXPORT_ES6 sidesteps Emscripten 3.1.x's
+    # mixed CJS/top-level-await output that Node 20+ refuses to load.
     set_target_properties(phytorch_wasm PROPERTIES
         SUFFIX ".js"
         LINK_FLAGS "\
 -O3 \
 -lembind \
 -sMODULARIZE=1 \
--sEXPORT_ES6=1 \
 -sEXPORT_NAME=createPhytorchModule \
 -sALLOW_MEMORY_GROWTH=1 \
--sENVIRONMENT=web \
+-sENVIRONMENT=web,node \
 -sFILESYSTEM=0 \
 -sDISABLE_EXCEPTION_CATCHING=0")
 endif()

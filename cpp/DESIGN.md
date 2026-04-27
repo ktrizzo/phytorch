@@ -99,10 +99,42 @@ cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build cpp/build -j
 
 # WebAssembly
-emcmake cmake -S cpp -B cpp/build-wasm -DPHYTORCH_BUILD_WASM=ON
+emcmake cmake -S cpp -B cpp/build-wasm -DPHYTORCH_BUILD_WASM=ON -DPHYTORCH_BUILD_TESTS=OFF
 cmake --build cpp/build-wasm -j
 # -> cpp/build-wasm/phytorch_wasm.{js,wasm}, copied into website/static/wasm/
 ```
+
+## Benchmarking Python vs Native vs WASM
+
+```bash
+python3 cpp/benchmarks/bench_compare.py --repeats 200 --N 60 --wasm
+```
+
+This runs three harnesses with the same models, parameter ground truth, and
+sample counts — `cpp/benchmarks/bench_native.cpp` (native C++ binary),
+`cpp/benchmarks/bench_python.py` (phytorch.fit through SciPy), and
+`cpp/benchmarks/bench_wasm.mjs` (Node loads the Emscripten module and times
+`fit_<name>(data, options)` calls). The script prints a table with per-fit
+median time and a geometric-mean speedup.
+
+Representative numbers from this repo (Linux x86_64, gcc 13, Emscripten
+3.1.6, Node 22, N=60, 200 reps per model):
+
+| Model                    | Python (μs) | C++ (μs) | WASM (μs) | Py/WASM |
+|--------------------------|-------------|----------|-----------|---------|
+| Arrhenius                | 1850        | 6.5      | 61        | 30×     |
+| Linear                   | 145         | 2.1      | 38        | 4×      |
+| Gaussian                 | 1585        | 13.9     | 52        | 31×     |
+| Weibull                  | 5147        | 38.3     | 80        | 64×     |
+| Beta                     | 5551        | 62.4     | 123       | 45×     |
+| BWB1987 / BBL1995 / MED  | 1500–2100   | 3–12     | 33–36     | 44–59×  |
+| BTA2012                  | 2063        | 7.4      | 37        | 56×     |
+| **geomean**              |             |          |           | **37×** |
+
+WASM lands at ~5× of native (Embind input/output marshalling per fit call
+plus V8's WASM JIT not matching gcc -O3 inlining). For typical N=60
+physiology datasets each fit completes in well under 150 μs — interactive
+for any plausible web-UI use. Throughput scales near-linearly with N.
 
 ## Roadmap
 

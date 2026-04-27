@@ -11,6 +11,7 @@
 #include "phytorch/fit.hpp"
 
 #include "phytorch/models/generic/arrhenius.hpp"
+#include "phytorch/models/generic/beta.hpp"
 #include "phytorch/models/generic/gaussian.hpp"
 #include "phytorch/models/generic/linear.hpp"
 #include "phytorch/models/generic/nonrectangular_hyperbola.hpp"
@@ -132,6 +133,11 @@ int main(int argc, char** argv) {
         bench<NonrectangularHyperbola>("NonrectangularHyperbola", X1, p, repeats, 0.1);
     }
     {
+        auto X1 = linspace(0.2, 9.8);
+        Eigen::Matrix<double,5,1> p; p << 4.0, 0.0, 10.0, 2.5, 3.0;
+        bench<Beta>("Beta", X1, p, repeats, 0.005);
+    }
+    {
         Eigen::Matrix<double, Eigen::Dynamic, 2> X(N, 2);
         for (int i = 0; i < N; ++i) { X(i,0) = -2.0 + 22.0 * i / (N - 1); X(i,1) = 0.4 + 0.5 * (i%5)/4.0; }
         Eigen::Matrix<double,2,1> p; p << 0.02, 9.0;
@@ -153,7 +159,9 @@ int main(int argc, char** argv) {
         Eigen::Matrix<double, Eigen::Dynamic, 2> X(N, 2);
         for (int i = 0; i < N; ++i) { X(i,0) = 50.0 + 1500.0 * i / (N - 1); X(i,1) = 5.0 + 25.0 * (i%5)/4.0; }
         Eigen::Matrix<double,4,1> p; p << 12.0, 60.0, 1.5e4, 7.0;
-        bench<BTA2012>("BTA2012", X, p, repeats, 0.005);
+        // gs is order 1e-4 here (small Em, large k, large Ds) — noise must
+        // be commensurate or the signal disappears entirely.
+        bench<BTA2012>("BTA2012", X, p, repeats, 1e-6);
     }
 
     return 0;
